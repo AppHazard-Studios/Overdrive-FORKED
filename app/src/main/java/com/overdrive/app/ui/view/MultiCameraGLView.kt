@@ -16,9 +16,8 @@ import javax.microedition.khronos.opengles.GL10
  * Mosaic quadrant layout in the 2560×1920 recorded file:
  *   Top-left=Front, Top-right=Right, Bottom-left=Rear, Bottom-right=Left
  *
- * v0/v1 are swapped from the raw image-space values to correct the BYD camera's
- * vertically-inverted output. The SurfaceTexture transform matrix handles the
- * OpenGL Y-flip on top of this.
+ * v0/v1 are swapped from raw image-space to correct the BYD camera's
+ * vertically-inverted mosaic output.
  */
 enum class CameraView(val label: String, val u0: Float, val v0: Float, val u1: Float, val v1: Float) {
     FRONT("Front", 0f,   0.5f, 0.5f, 0f  ),
@@ -27,19 +26,16 @@ enum class CameraView(val label: String, val u0: Float, val v0: Float, val u1: F
     LEFT ("Left",  0.5f, 1f,   1f,   0.5f)
 }
 
-enum class ViewMode { GRID, FULLSCREEN }
-
 /**
- * Renders a single mosaic MP4 (decoded via one MediaPlayer) in two modes:
+ * Renders a single mosaic MP4 (decoded via one MediaPlayer) into five screen regions:
  *
- * GRID — four equal quadrants arranged in a 2×2 layout with a thin black gap.
- *        Tap a quadrant's overlay cell to switch to FULLSCREEN for that camera.
+ *   Large (left ~74%): the selected primary camera fills this area.
+ *   Column (right ~26%): all four cameras stacked in equal rows — including the
+ *     primary, so all four are always tappable. Tap any row to promote it to the
+ *     large view.
  *
- * FULLSCREEN — one camera quadrant fills the entire GL surface.
- *              Tap anywhere to toggle the playback controls overlay.
- *
- * One hardware decoder, one texture upload per frame, four GL draw calls (grid)
- * or one draw call (fullscreen).
+ * Five GL draw calls per frame, one hardware decoder, one texture upload.
+ * Call setPrimaryCamera() to change which camera is large.
  */
 class MultiCameraGLView @JvmOverloads constructor(
     context: Context,
@@ -59,8 +55,8 @@ class MultiCameraGLView @JvmOverloads constructor(
     private var locTexMatrix = 0
     private var locSampler = 0
 
-    @Volatile private var viewMode: ViewMode = ViewMode.GRID
-    @Volatile private var fullscreenCamera: CameraView = CameraView.REAR
+    @Volatile var primaryCamera: CameraView = CameraView.REAR
+        private set
 
     /** Called on the main thread once the Surface is ready for MediaPlayer.setSurface(). */
     var onSurfaceReady: ((Surface) -> Unit)? = null
@@ -71,19 +67,10 @@ class MultiCameraGLView @JvmOverloads constructor(
         renderMode = RENDERMODE_WHEN_DIRTY
     }
 
-    fun setGridMode() {
-        viewMode = ViewMode.GRID
+    fun setPrimaryCamera(cam: CameraView) {
+        primaryCamera = cam
         requestRender()
     }
-
-    fun setFullscreenCamera(cam: CameraView) {
-        fullscreenCamera = cam
-        viewMode = ViewMode.FULLSCREEN
-        requestRender()
-    }
-
-    fun currentMode(): ViewMode = viewMode
-    fun currentFullscreenCamera(): CameraView = fullscreenCamera
 
     // region GLSurfaceView.Renderer
 
@@ -135,18 +122,19 @@ class MultiCameraGLView @JvmOverloads constructor(
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, textureId)
         GLES20.glUniform1i(locSampler, 0)
 
-        when (viewMode) {
-            ViewMode.FULLSCREEN -> {
-                drawQuad(-1f, -1f, 1f, 1f, fullscreenCamera)
-            }
-            ViewMode.GRID -> {
-                // 2×2 grid — g is the half-gap in NDC units, producing a thin black divider
-                val g = 0.015f
-                drawQuad(-1f,  g, -g,  1f, CameraView.FRONT)  // top-left
-                drawQuad( g,   g,  1f,  1f, CameraView.RIGHT)  // top-right
-                drawQuad(-1f, -1f, -g, -g, CameraView.REAR)   // bottom-left
-                drawQuad( g,  -1f,  1f, -g, CameraView.LEFT)   // bottom-right
-            }
+        val primary = primaryCamera
+
+        // Large view: left 74% of screen (NDC x: -1 → 0.48), full height
+        drawQuad(-1f, -1f, 0.48f, 1f, primary)
+
+        // Right column: all four cameras in equal rows (NDC x: 0.51 → 1).
+        // The gap between rows is the black clear-colour band (0.5% each side).
+        val rowH = 2f / 4f   // 4 equal rows across NDC height range of 2
+        val gap  = 0.005f
+        CameraView.values().forEachIndexed { i, cam ->
+            val y1 = (1f - i * rowH - gap).coerceAtMost(1f)
+            val y0 = (y1 - rowH + gap * 2f).coerceAtLeast(-1f)
+            drawQuad(0.51f, y0, 1f, y1, cam)
         }
     }
 
@@ -154,7 +142,7 @@ class MultiCameraGLView @JvmOverloads constructor(
 
     private fun drawQuad(x0: Float, y0: Float, x1: Float, y1: Float, cam: CameraView) {
         // Vertices: (x, y, u, v) — two triangles via TRIANGLE_STRIP
-        // y1 > y0 (y1=top, y0=bottom in NDC)
+        // y1=top, y0=bottom in NDC
         val verts = floatArrayOf(
             x0, y1, cam.u0, cam.v0,   // top-left
             x1, y1, cam.u1, cam.v0,   // top-right

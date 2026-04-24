@@ -12,28 +12,29 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.SeekBar
 import android.widget.TextView
-import androidx.activity.OnBackPressedCallback
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.overdrive.app.R
 import com.overdrive.app.ui.view.CameraView
+import com.overdrive.app.ui.view.EventTimelineView
 import com.overdrive.app.ui.view.MultiCameraGLView
-import com.overdrive.app.ui.view.ViewMode
+import org.json.JSONObject
 import java.io.File
 
 /**
  * Multi-camera playback viewer for mosaic recordings.
  *
- * One MediaPlayer feeds one SurfaceTexture → GL_TEXTURE_EXTERNAL_OES texture →
- * rendered by MultiCameraGLView in one of two modes:
+ * Layout: large primary view (left ~74%) + right column with all four camera
+ * thumbnails (right ~26%). Tapping any thumbnail promotes it to the large view.
+ * The active camera thumbnail shows a brand-colour left border.
  *
- * GRID — 2×2 equal quadrants. Tap a quadrant to enter FULLSCREEN for that camera.
- *        Controls (top/bottom bars) are hidden in grid mode.
+ * Bottom bar: thin EventTimelineView (8dp) directly above the SeekBar — reads as
+ * a single scrub control with event markers. Timeline duration is sourced from
+ * mp.duration (not the JSON) so playhead position is always in perfect sync with
+ * the scrubber.
  *
- * FULLSCREEN — selected camera fills the screen. Tap anywhere to toggle controls.
- *              Controls auto-hide after 3 s of playback.
- *              "Grid" button in the top bar returns to GRID mode.
- *              Hardware back also returns to GRID mode (not to events list).
+ * Controls (top/bottom bars) start hidden. Tap the large area to reveal them;
+ * they auto-hide after 3 seconds of playback.
  *
  * Video loops continuously.
  */
@@ -42,31 +43,32 @@ class MultiCameraPlayerFragment : Fragment() {
     companion object {
         const val ARG_VIDEO_PATH  = "video_path"
         const val ARG_VIDEO_TITLE = "video_title"
-        private const val SEEK_UPDATE_MS  = 250L
-        private const val OVERLAY_HIDE_MS = 3000L
+        private const val SEEK_UPDATE_MS   = 250L
+        private const val CONTROLS_HIDE_MS = 3000L
     }
 
-    private lateinit var glView:         MultiCameraGLView
-    private lateinit var gridOverlay:    View
-    private lateinit var gridCellFront:  FrameLayout
-    private lateinit var gridCellRight:  FrameLayout
-    private lateinit var gridCellRear:   FrameLayout
-    private lateinit var gridCellLeft:   FrameLayout
-    private lateinit var topBar:         View
-    private lateinit var bottomControls: View
-    private lateinit var seekBar:        SeekBar
-    private lateinit var tvCurrentTime:  TextView
-    private lateinit var tvDuration:     TextView
-    private lateinit var tvTitle:        TextView
-    private lateinit var tvMeta:         TextView
-    private lateinit var btnPlayPause:   ImageButton
-    private lateinit var btnBack:        ImageButton
-    private lateinit var btnGridView:    ImageButton
+    // Views
+    private lateinit var glView:           MultiCameraGLView
+    private lateinit var primaryTapTarget: View
+    private lateinit var topBar:           View
+    private lateinit var bottomControls:   View
+    private lateinit var seekBar:          SeekBar
+    private lateinit var eventTimeline:    EventTimelineView
+    private lateinit var tvCurrentTime:    TextView
+    private lateinit var tvDuration:       TextView
+    private lateinit var tvTitle:          TextView
+    private lateinit var tvMeta:           TextView
+    private lateinit var btnPlayPause:     ImageButton
+    private lateinit var btnBack:          ImageButton
+
+    // Camera column cells and their active indicators
+    private val camCells      = mutableMapOf<CameraView, FrameLayout>()
+    private val camIndicators = mutableMapOf<CameraView, View>()
 
     private var mediaPlayer: MediaPlayer? = null
     private val handler = Handler(Looper.getMainLooper())
     private var isUserSeeking = false
-    private var controlsVisible = false   // controls start hidden
+    private var controlsVisible = false
 
     private val updateRunnable = object : Runnable {
         override fun run() {
@@ -75,6 +77,8 @@ class MultiCameraPlayerFragment : Fragment() {
                 val pos = mp.currentPosition
                 seekBar.progress = pos
                 tvCurrentTime.text = formatTime(pos)
+                // Timeline uses same position value — guaranteed sync with seekbar
+                eventTimeline.setPlayhead(pos.toLong())
             }
             handler.postDelayed(this, SEEK_UPDATE_MS)
         }
@@ -84,18 +88,6 @@ class MultiCameraPlayerFragment : Fragment() {
         if (mediaPlayer?.isPlaying == true) setControlsVisible(false)
     }
 
-    // Hardware back: in FULLSCREEN → go back to GRID; in GRID → pop back stack
-    private val backCallback = object : OnBackPressedCallback(true) {
-        override fun handleOnBackPressed() {
-            if (glView.currentMode() == ViewMode.FULLSCREEN) {
-                switchToGrid()
-            } else {
-                isEnabled = false
-                requireActivity().onBackPressedDispatcher.onBackPressed()
-            }
-        }
-    }
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View = inflater.inflate(R.layout.fragment_multi_camera_player, container, false)
@@ -103,85 +95,134 @@ class MultiCameraPlayerFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        glView         = view.findViewById(R.id.glView)
-        gridOverlay    = view.findViewById(R.id.gridOverlay)
-        gridCellFront  = view.findViewById(R.id.gridCellFront)
-        gridCellRight  = view.findViewById(R.id.gridCellRight)
-        gridCellRear   = view.findViewById(R.id.gridCellRear)
-        gridCellLeft   = view.findViewById(R.id.gridCellLeft)
-        topBar         = view.findViewById(R.id.topBar)
-        bottomControls = view.findViewById(R.id.bottomControls)
-        seekBar        = view.findViewById(R.id.seekBar)
-        tvCurrentTime  = view.findViewById(R.id.tvCurrentTime)
-        tvDuration     = view.findViewById(R.id.tvDuration)
-        tvTitle        = view.findViewById(R.id.tvTitle)
-        tvMeta         = view.findViewById(R.id.tvMeta)
-        btnPlayPause   = view.findViewById(R.id.btnPlayPause)
-        btnBack        = view.findViewById(R.id.btnBack)
-        btnGridView    = view.findViewById(R.id.btnGridView)
+        glView           = view.findViewById(R.id.glView)
+        primaryTapTarget = view.findViewById(R.id.primaryTapTarget)
+        topBar           = view.findViewById(R.id.topBar)
+        bottomControls   = view.findViewById(R.id.bottomControls)
+        seekBar          = view.findViewById(R.id.seekBar)
+        eventTimeline    = view.findViewById(R.id.eventTimeline)
+        tvCurrentTime    = view.findViewById(R.id.tvCurrentTime)
+        tvDuration       = view.findViewById(R.id.tvDuration)
+        tvTitle          = view.findViewById(R.id.tvTitle)
+        tvMeta           = view.findViewById(R.id.tvMeta)
+        btnPlayPause     = view.findViewById(R.id.btnPlayPause)
+        btnBack          = view.findViewById(R.id.btnBack)
+
+        camCells[CameraView.FRONT] = view.findViewById(R.id.camCellFront)
+        camCells[CameraView.RIGHT] = view.findViewById(R.id.camCellRight)
+        camCells[CameraView.REAR]  = view.findViewById(R.id.camCellRear)
+        camCells[CameraView.LEFT]  = view.findViewById(R.id.camCellLeft)
+
+        camIndicators[CameraView.FRONT] = view.findViewById(R.id.camActiveFront)
+        camIndicators[CameraView.RIGHT] = view.findViewById(R.id.camActiveRight)
+        camIndicators[CameraView.REAR]  = view.findViewById(R.id.camActiveRear)
+        camIndicators[CameraView.LEFT]  = view.findViewById(R.id.camActiveLeft)
 
         val videoPath = arguments?.getString(ARG_VIDEO_PATH) ?: run {
             findNavController().popBackStack(); return
         }
         tvTitle.text = arguments?.getString(ARG_VIDEO_TITLE) ?: File(videoPath).name
-        val file = File(videoPath)
-        if (file.exists()) tvMeta.text = formatSize(file.length())
+        File(videoPath).takeIf { it.exists() }?.let { tvMeta.text = formatSize(it.length()) }
 
-        setupGridCells()
+        setupCameraColumn()
         setupControls()
-        setupFullscreenTouch()
+        updateActiveIndicator()
 
-        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, backCallback)
-
-        // Start in GRID mode — all four feeds visible, controls hidden
-        applyGridMode()
+        primaryTapTarget.setOnClickListener {
+            if (controlsVisible) setControlsVisible(false)
+            else { setControlsVisible(true); scheduleControlsHide() }
+        }
 
         glView.onSurfaceReady = { surface ->
             activity?.runOnUiThread { startMediaPlayer(videoPath, surface) }
         }
     }
 
-    // region Mode switching
+    // region Camera column
 
-    private fun switchToGrid() {
-        glView.setGridMode()
-        gridOverlay.visibility = View.VISIBLE
-        btnGridView.visibility = View.GONE
-        // Hide controls when returning to grid
-        setControlsVisible(false)
+    private fun setupCameraColumn() {
+        camCells.forEach { (cam, cell) ->
+            cell.setOnClickListener {
+                glView.setPrimaryCamera(cam)
+                updateActiveIndicator()
+            }
+        }
     }
 
-    private fun switchToFullscreen(cam: CameraView) {
-        glView.setFullscreenCamera(cam)
-        gridOverlay.visibility = View.GONE
-        btnGridView.visibility = View.VISIBLE
-        // Briefly show controls so the user knows they can tap to reveal them
-        setControlsVisible(true)
-        scheduleControlsHide()
-    }
-
-    private fun applyGridMode() {
-        glView.setGridMode()
-        gridOverlay.visibility = View.VISIBLE
-        btnGridView.visibility = View.GONE
-        setControlsVisible(false)
+    private fun updateActiveIndicator() {
+        val primary = glView.primaryCamera
+        camIndicators.forEach { (cam, indicator) ->
+            indicator.visibility = if (cam == primary) View.VISIBLE else View.GONE
+        }
     }
 
     // endregion
 
-    // region Setup
+    // region MediaPlayer
 
-    private fun setupGridCells() {
-        gridCellFront.setOnClickListener { switchToFullscreen(CameraView.FRONT) }
-        gridCellRight.setOnClickListener { switchToFullscreen(CameraView.RIGHT) }
-        gridCellRear.setOnClickListener  { switchToFullscreen(CameraView.REAR)  }
-        gridCellLeft.setOnClickListener  { switchToFullscreen(CameraView.LEFT)  }
+    private fun startMediaPlayer(path: String, surface: android.view.Surface) {
+        val mp = MediaPlayer().apply {
+            setDataSource(requireContext(), Uri.fromFile(File(path)))
+            setSurface(surface)
+            setOnPreparedListener { player ->
+                val dur = player.duration
+                seekBar.max = dur
+                tvDuration.text = formatTime(dur)
+                // Set timeline duration from the actual video, not the JSON sidecar,
+                // so the playhead is always in sync with the seekbar position.
+                eventTimeline.setDuration(dur.toLong())
+                player.isLooping = true
+                player.start()
+                btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
+                handler.post(updateRunnable)
+                // Load event markers after we know the real duration
+                loadEventMarkers(path)
+            }
+            setOnErrorListener { _, what, extra ->
+                android.util.Log.e("MultiCamPlayer", "MediaPlayer error: what=$what extra=$extra")
+                true
+            }
+            prepareAsync()
+        }
+        mediaPlayer = mp
     }
+
+    /** Loads event detection markers from the .json sidecar into the timeline strip. */
+    private fun loadEventMarkers(videoPath: String) {
+        Thread {
+            try {
+                val jsonFile = File(videoPath.replace(".mp4", ".json"))
+                if (!jsonFile.exists()) return@Thread
+                val json = JSONObject(jsonFile.readText())
+                val arr  = json.optJSONArray("events") ?: return@Thread
+
+                val events = (0 until arr.length()).map { i ->
+                    val ev = arr.getJSONObject(i)
+                    EventTimelineView.TimelineEvent(
+                        startMs    = ev.getLong("start"),
+                        endMs      = ev.getLong("end"),
+                        type       = ev.optString("type", "motion"),
+                        confidence = ev.optDouble("maxConf", 0.0).toFloat()
+                    )
+                }
+
+                activity?.runOnUiThread {
+                    // setEvents() no longer sets the duration — duration was already set
+                    // from mp.duration in onPrepared, so the playhead stays in sync.
+                    eventTimeline.setEvents(events)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MultiCamPlayer", "Event markers load failed: ${e.message}")
+            }
+        }.start()
+    }
+
+    // endregion
+
+    // region Controls
 
     private fun setupControls() {
         btnBack.setOnClickListener { findNavController().popBackStack() }
-
-        btnGridView.setOnClickListener { switchToGrid() }
 
         btnPlayPause.setOnClickListener {
             val mp = mediaPlayer ?: return@setOnClickListener
@@ -198,7 +239,11 @@ class MultiCameraPlayerFragment : Fragment() {
 
         seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (fromUser) tvCurrentTime.text = formatTime(progress)
+                if (fromUser) {
+                    tvCurrentTime.text = formatTime(progress)
+                    // Keep timeline in sync while the user drags the seekbar
+                    eventTimeline.setPlayhead(progress.toLong())
+                }
             }
             override fun onStartTrackingTouch(sb: SeekBar?) {
                 isUserSeeking = true
@@ -211,50 +256,6 @@ class MultiCameraPlayerFragment : Fragment() {
             }
         })
     }
-
-    /** In FULLSCREEN mode, tapping anywhere toggles the controls overlay. */
-    private fun setupFullscreenTouch() {
-        glView.setOnClickListener {
-            if (glView.currentMode() == ViewMode.FULLSCREEN) {
-                if (controlsVisible) {
-                    setControlsVisible(false)
-                } else {
-                    setControlsVisible(true)
-                    scheduleControlsHide()
-                }
-            }
-        }
-    }
-
-    // endregion
-
-    // region MediaPlayer
-
-    private fun startMediaPlayer(path: String, surface: android.view.Surface) {
-        val mp = MediaPlayer().apply {
-            setDataSource(requireContext(), Uri.fromFile(File(path)))
-            setSurface(surface)
-            setOnPreparedListener { player ->
-                val dur = player.duration
-                seekBar.max = dur
-                tvDuration.text = formatTime(dur)
-                player.isLooping = true   // loop continuously
-                player.start()
-                btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
-                handler.post(updateRunnable)
-            }
-            setOnErrorListener { _, what, extra ->
-                android.util.Log.e("MultiCamPlayer", "MediaPlayer error: what=$what extra=$extra")
-                true
-            }
-            prepareAsync()
-        }
-        mediaPlayer = mp
-    }
-
-    // endregion
-
-    // region Controls overlay
 
     private fun setControlsVisible(visible: Boolean) {
         controlsVisible = visible
@@ -272,7 +273,7 @@ class MultiCameraPlayerFragment : Fragment() {
 
     private fun scheduleControlsHide() {
         handler.removeCallbacks(hideControlsRunnable)
-        handler.postDelayed(hideControlsRunnable, OVERLAY_HIDE_MS)
+        handler.postDelayed(hideControlsRunnable, CONTROLS_HIDE_MS)
     }
 
     // endregion

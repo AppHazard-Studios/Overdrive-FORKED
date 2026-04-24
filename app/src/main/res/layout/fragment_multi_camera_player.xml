@@ -4,133 +4,166 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- GL view fills the entire screen; all overlays sit on top -->
+    <!-- GL view fills the entire screen; overlays sit on top -->
     <com.overdrive.app.ui.view.MultiCameraGLView
         android:id="@+id/glView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
     <!--
-        2×2 grid overlay — mirrors the GL quad positions exactly.
-        Each cell covers one quadrant and is tappable to enter fullscreen for that camera.
-        Shown in GRID mode; hidden in FULLSCREEN mode.
-        The thin black divider is the GL clear colour showing through the g=0.015 gap.
+        Camera column overlay — mirrors the GL quad positions exactly:
+          Left 74%: large primary area. Tappable to toggle controls.
+          Right 26%: four equal rows, one per camera, all tappable.
+        The selected camera row shows a brand-colour left border.
+        Always visible so the camera thumbnails are always accessible.
     -->
     <LinearLayout
-        android:id="@+id/gridOverlay"
+        android:id="@+id/cameraOverlay"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical">
+        android:orientation="horizontal">
 
-        <!-- Top row: FRONT (left) | RIGHT (right) -->
+        <!-- Large primary area: tap here to toggle playback controls -->
+        <View
+            android:id="@+id/primaryTapTarget"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="74" />
+
+        <!-- Right column: all four cameras, each tappable -->
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal">
+            android:id="@+id/cameraColumn"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="26"
+            android:orientation="vertical">
 
             <FrameLayout
-                android:id="@+id/gridCellFront"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:id="@+id/camCellFront"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
                 android:layout_weight="1"
                 android:foreground="?attr/selectableItemBackground">
 
+                <View
+                    android:id="@+id/camActiveFront"
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:background="@color/brand_primary"
+                    android:visibility="gone" />
+
                 <TextView
-                    android:id="@+id/tvLabelFront"
+                    android:id="@+id/tvCamLabelFront"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|start"
-                    android:layout_margin="6dp"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp"
+                    android:layout_margin="4dp"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="1dp"
                     android:background="#66000000"
                     android:textColor="#CCFFFFFF"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     android:fontFamily="sans-serif-medium"
                     android:text="FRONT" />
             </FrameLayout>
 
             <FrameLayout
-                android:id="@+id/gridCellRight"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:id="@+id/camCellRight"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
                 android:layout_weight="1"
                 android:foreground="?attr/selectableItemBackground">
 
+                <View
+                    android:id="@+id/camActiveRight"
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:background="@color/brand_primary"
+                    android:visibility="gone" />
+
                 <TextView
-                    android:id="@+id/tvLabelRight"
+                    android:id="@+id/tvCamLabelRight"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|start"
-                    android:layout_margin="6dp"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp"
+                    android:layout_margin="4dp"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="1dp"
                     android:background="#66000000"
                     android:textColor="#CCFFFFFF"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     android:fontFamily="sans-serif-medium"
                     android:text="RIGHT" />
             </FrameLayout>
-        </LinearLayout>
-
-        <!-- Bottom row: REAR (left) | LEFT (right) -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal">
 
             <FrameLayout
-                android:id="@+id/gridCellRear"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:id="@+id/camCellRear"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
                 android:layout_weight="1"
                 android:foreground="?attr/selectableItemBackground">
 
+                <View
+                    android:id="@+id/camActiveRear"
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:background="@color/brand_primary"
+                    android:visibility="gone" />
+
                 <TextView
-                    android:id="@+id/tvLabelRear"
+                    android:id="@+id/tvCamLabelRear"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|start"
-                    android:layout_margin="6dp"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp"
+                    android:layout_margin="4dp"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="1dp"
                     android:background="#66000000"
                     android:textColor="#CCFFFFFF"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     android:fontFamily="sans-serif-medium"
                     android:text="REAR" />
             </FrameLayout>
 
             <FrameLayout
-                android:id="@+id/gridCellLeft"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
+                android:id="@+id/camCellLeft"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
                 android:layout_weight="1"
                 android:foreground="?attr/selectableItemBackground">
 
+                <View
+                    android:id="@+id/camActiveLeft"
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:background="@color/brand_primary"
+                    android:visibility="gone" />
+
                 <TextView
-                    android:id="@+id/tvLabelLeft"
+                    android:id="@+id/tvCamLabelLeft"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|start"
-                    android:layout_margin="6dp"
-                    android:paddingHorizontal="6dp"
-                    android:paddingVertical="2dp"
+                    android:layout_margin="4dp"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="1dp"
                     android:background="#66000000"
                     android:textColor="#CCFFFFFF"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     android:fontFamily="sans-serif-medium"
                     android:text="LEFT" />
             </FrameLayout>
+
         </LinearLayout>
     </LinearLayout>
 
     <!--
-        Top bar: back + title + meta + grid-return button.
-        Starts GONE. Shown on tap in FULLSCREEN mode; hidden after 3s of playback.
-        btnGridView is only visible in FULLSCREEN mode.
+        Top bar: back + title + meta.
+        Starts GONE. Tap the large area to reveal; auto-hides after 3 s of playback.
     -->
     <LinearLayout
         android:id="@+id/topBar"
@@ -170,26 +203,13 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textColor="#B0FFFFFF"
-            android:textSize="12sp"
-            android:layout_marginEnd="8dp" />
-
-        <!-- Shown only in FULLSCREEN mode to return to the 2×2 grid -->
-        <ImageButton
-            android:id="@+id/btnGridView"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/ic_grid"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Grid view"
-            android:tint="#FFFFFF"
-            android:scaleType="centerInside"
-            android:visibility="gone" />
+            android:textSize="12sp" />
     </LinearLayout>
 
     <!--
-        Bottom controls: seekbar + play/pause + time display.
-        Starts GONE. Shown on tap in FULLSCREEN mode; hidden after 3s of playback.
-        Event timeline removed — it was visually crowded and redundant in this view.
+        Bottom controls: seekbar + play/pause + time.
+        Starts GONE. Shown when top bar is revealed.
+        Event timeline removed — the single seekbar is cleaner.
     -->
     <LinearLayout
         android:id="@+id/bottomControls"
@@ -203,6 +223,19 @@
         android:paddingTop="4dp"
         android:paddingBottom="8dp"
         android:visibility="gone">
+
+        <!--
+            Event detection timeline: thin 8dp strip of colored markers sitting
+            directly above the seekbar, so it reads as a single integrated scrub control.
+            Duration is set from mp.duration (not the JSON) to guarantee sync.
+        -->
+        <com.overdrive.app.ui.view.EventTimelineView
+            android:id="@+id/eventTimeline"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="2dp" />
 
         <SeekBar
             android:id="@+id/seekBar"
