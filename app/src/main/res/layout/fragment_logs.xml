@@ -6,11 +6,11 @@
     android:background="@color/bg_base"
     android:orientation="vertical">
 
-    <!-- Controls bar -->
+    <!-- Controls bar — bg_surface matches the toolbar so the two rows read as one unified header -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:background="@color/bg_elevated"
+        android:background="@color/bg_surface"
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingHorizontal="16dp">
@@ -20,7 +20,7 @@
             android:layout_width="120dp"
             android:layout_height="32dp"
             android:background="@drawable/spinner_background_glossy"
-            android:popupBackground="@color/bg_surface" />
+            android:popupBackground="@color/bg_elevated" />
 
         <View
             android:layout_width="0dp"
@@ -47,6 +47,11 @@
             app:tint="@color/text_muted" />
 
     </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/divider" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerLogs"
