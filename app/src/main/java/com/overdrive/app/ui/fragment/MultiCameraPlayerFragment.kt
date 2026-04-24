@@ -12,6 +12,7 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.SeekBar
 import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.overdrive.app.R
@@ -123,6 +124,8 @@ class MultiCameraPlayerFragment : Fragment() {
         }
         tvTitle.text = arguments?.getString(ARG_VIDEO_TITLE) ?: File(videoPath).name
         File(videoPath).takeIf { it.exists() }?.let { tvMeta.text = formatSize(it.length()) }
+
+        (activity as? AppCompatActivity)?.supportActionBar?.hide()
 
         setupCameraColumn()
         setupControls()
@@ -307,6 +310,7 @@ class MultiCameraPlayerFragment : Fragment() {
     }
 
     override fun onDestroyView() {
+        (activity as? AppCompatActivity)?.supportActionBar?.show()
         handler.removeCallbacks(updateRunnable)
         handler.removeCallbacks(hideControlsRunnable)
         mediaPlayer?.apply { stop(); release() }
