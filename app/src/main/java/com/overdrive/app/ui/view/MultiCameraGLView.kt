@@ -14,16 +14,17 @@ import javax.microedition.khronos.opengles.GL10
 
 /**
  * Mosaic quadrant layout in the 2560×1920 recorded file:
- *   Top-left=Front, Top-right=Right, Bottom-left=Rear, Bottom-right=Left
+ *   Top-left=Rear, Top-right=Left, Bottom-left=Front, Bottom-right=Right
+ *   (verified on physical BYD Atto 3 — mosaic order differs from camera names)
  *
  * v0/v1 are swapped from raw image-space to correct the BYD camera's
  * vertically-inverted mosaic output.
  */
 enum class CameraView(val label: String, val u0: Float, val v0: Float, val u1: Float, val v1: Float) {
-    FRONT("Front", 0f,   0.5f, 0.5f, 0f  ),
-    RIGHT("Right", 0.5f, 0.5f, 1f,   0f  ),
-    REAR ("Rear",  0f,   1f,   0.5f, 0.5f),
-    LEFT ("Left",  0.5f, 1f,   1f,   0.5f)
+    FRONT("Front", 0f,   1f,   0.5f, 0.5f),
+    RIGHT("Right", 0.5f, 1f,   1f,   0.5f),
+    REAR ("Rear",  0f,   0.5f, 0.5f, 0f  ),
+    LEFT ("Left",  0.5f, 0.5f, 1f,   0f  )
 }
 
 /**
@@ -86,6 +87,8 @@ class MultiCameraGLView @JvmOverloads constructor(
         GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE)
 
         val st = SurfaceTexture(textureId)
+        // Hint the decoder to deliver frames at full mosaic resolution.
+        st.setDefaultBufferSize(2560, 1920)
         st.setOnFrameAvailableListener {
             synchronized(frameLock) { frameAvailable = true }
             requestRender()
@@ -124,17 +127,18 @@ class MultiCameraGLView @JvmOverloads constructor(
 
         val primary = primaryCamera
 
-        // Large view: left 74% of screen (NDC x: -1 → 0.48), full height
-        drawQuad(-1f, -1f, 0.48f, 1f, primary)
+        // Large view: left 74% of screen (NDC x: -1 → 0.47), full height
+        drawQuad(-1f, -1f, 0.47f, 1f, primary)
 
-        // Right column: all four cameras in equal rows (NDC x: 0.51 → 1).
-        // The gap between rows is the black clear-colour band (0.5% each side).
+        // Right column: all four cameras in equal rows (NDC x: 0.48 → 1).
+        // Starts at 0.48 to match the overlay layout boundary (74:26 weight split),
+        // eliminating the black strip that appeared inside the column touch targets.
         val rowH = 2f / 4f   // 4 equal rows across NDC height range of 2
         val gap  = 0.005f
         CameraView.values().forEachIndexed { i, cam ->
             val y1 = (1f - i * rowH - gap).coerceAtMost(1f)
             val y0 = (y1 - rowH + gap * 2f).coerceAtLeast(-1f)
-            drawQuad(0.51f, y0, 1f, y1, cam)
+            drawQuad(0.48f, y0, 1f, y1, cam)
         }
     }
 
