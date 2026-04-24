@@ -7,220 +7,128 @@
     android:background="@color/bg_base"
     android:orientation="vertical">
 
-    <!-- Ultra Compact Calendar Header -->
+    <!--
+        Compact navigation bar: day arrows + tappable date pill + filter segment.
+        Replaces the full calendar grid — saves ~200dp of vertical space on the head unit.
+        iOS-inspired segmented control for filters, Android ripple for touch feedback.
+    -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:paddingHorizontal="12dp"
-        android:paddingVertical="8dp">
-
-        <ImageButton
-            android:id="@+id/btnPrevMonth"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Previous month"
-            android:src="@drawable/ic_chevron_left"
-            app:tint="@color/text_secondary" />
-
-        <TextView
-            android:id="@+id/tvCurrentMonth"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:textColor="@color/text_primary"
-            android:textSize="14sp"
-            android:fontFamily="sans-serif-medium"
-            tools:text="January 2026" />
-
-        <ImageButton
-            android:id="@+id/btnNextMonth"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Next month"
-            android:src="@drawable/ic_chevron_right"
-            app:tint="@color/text_secondary" />
-    </LinearLayout>
-
-    <!-- Compact Day Headers -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingHorizontal="4dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="S"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="M"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="T"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="W"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="T"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="F"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:text="S"
-            android:textColor="@color/text_muted"
-            android:textSize="10sp" />
-    </LinearLayout>
-
-    <!-- Ultra Compact Calendar Grid -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recyclerCalendar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingHorizontal="4dp"
-        android:overScrollMode="never"
-        android:nestedScrollingEnabled="false" />
-
-    <!-- Professional Filter Bar -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:paddingHorizontal="12dp"
+        android:paddingHorizontal="16dp"
         android:paddingVertical="10dp"
         android:background="@color/bg_surface">
 
+        <!-- Date navigation: ← [Apr 24, 2026] → -->
+        <ImageButton
+            android:id="@+id/btnPrevDay"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Previous day"
+            android:src="@drawable/ic_chevron_left"
+            app:tint="@color/text_secondary" />
+
+        <!-- Tappable date pill — opens DatePickerDialog -->
         <TextView
             android:id="@+id/tvSelectedDate"
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginHorizontal="4dp"
+            android:gravity="center"
+            android:paddingHorizontal="14dp"
             android:textColor="@color/text_primary"
             android:textSize="13sp"
             android:fontFamily="sans-serif-medium"
-            tools:text="Jan 20" />
+            android:background="@drawable/bg_pill"
+            android:foreground="?attr/selectableItemBackground"
+            android:clickable="true"
+            android:focusable="true"
+            tools:text="Apr 24, 2026" />
 
+        <ImageButton
+            android:id="@+id/btnNextDay"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Next day"
+            android:src="@drawable/ic_chevron_right"
+            app:tint="@color/text_secondary" />
+
+        <!-- Flexible spacer pushes filter segment to the right -->
         <View
-            android:layout_width="1dp"
-            android:layout_height="16dp"
-            android:layout_marginHorizontal="12dp"
-            android:background="@color/divider" />
-
-        <!-- Professional Segmented Filter -->
-        <com.google.android.material.chip.ChipGroup
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            app:singleSelection="true"
-            app:chipSpacingHorizontal="4dp">
+            android:layout_height="1dp"
+            android:layout_weight="1" />
 
-            <com.google.android.material.chip.Chip
+        <!-- iOS-style segmented filter control -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:background="@drawable/bg_pill"
+            android:padding="3dp">
+
+            <TextView
                 android:id="@+id/btnFilterAll"
-                style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
-                android:layout_height="26dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingHorizontal="14dp"
                 android:text="All"
-                android:checked="true"
-                android:textSize="11sp"
-                app:chipBackgroundColor="@color/chip_background"
-                app:chipStrokeWidth="0dp"
-                app:chipCornerRadius="13dp"
-                app:chipMinHeight="26dp"
-                app:chipMinTouchTargetSize="26dp"
-                android:textColor="@color/chip_text"
-                app:checkedIconVisible="false" />
+                android:textColor="@color/bg_base"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="@drawable/bg_filter_tab_active" />
 
-            <com.google.android.material.chip.Chip
+            <TextView
                 android:id="@+id/btnFilterNormal"
-                style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
-                android:layout_height="26dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingHorizontal="14dp"
                 android:text="Rec"
-                android:textSize="11sp"
-                app:chipBackgroundColor="@color/chip_background"
-                app:chipStrokeWidth="0dp"
-                app:chipCornerRadius="13dp"
-                app:chipMinHeight="26dp"
-                app:chipMinTouchTargetSize="26dp"
-                android:textColor="@color/chip_text"
-                app:checkedIconVisible="false" />
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless" />
 
-            <com.google.android.material.chip.Chip
+            <TextView
                 android:id="@+id/btnFilterSentry"
-                style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
-                android:layout_height="26dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingHorizontal="14dp"
                 android:text="Sentry"
-                android:textSize="11sp"
-                app:chipBackgroundColor="@color/chip_background"
-                app:chipStrokeWidth="0dp"
-                app:chipCornerRadius="13dp"
-                app:chipMinHeight="26dp"
-                app:chipMinTouchTargetSize="26dp"
-                android:textColor="@color/chip_text"
-                app:checkedIconVisible="false" />
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless" />
 
-            <com.google.android.material.chip.Chip
+            <TextView
                 android:id="@+id/btnFilterProximity"
-                style="@style/Widget.Material3.Chip.Filter"
                 android:layout_width="wrap_content"
-                android:layout_height="26dp"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:paddingHorizontal="14dp"
                 android:text="Prox"
-                android:textSize="11sp"
-                app:chipBackgroundColor="@color/chip_background"
-                app:chipStrokeWidth="0dp"
-                app:chipCornerRadius="13dp"
-                app:chipMinHeight="26dp"
-                app:chipMinTouchTargetSize="26dp"
-                android:textColor="@color/chip_text"
-                app:checkedIconVisible="false" />
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:fontFamily="sans-serif-medium"
+                android:clickable="true"
+                android:focusable="true"
+                android:background="?attr/selectableItemBackgroundBorderless" />
 
-        </com.google.android.material.chip.ChipGroup>
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Divider -->
@@ -229,7 +137,7 @@
         android:layout_height="1dp"
         android:background="@color/divider" />
 
-    <!-- Recordings List (takes remaining space) -->
+    <!-- Recordings list — takes all remaining vertical space -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -241,9 +149,10 @@
             android:layout_height="match_parent"
             android:clipToPadding="false"
             android:paddingTop="8dp"
-            android:paddingBottom="16dp" />
+            android:paddingBottom="16dp"
+            android:overScrollMode="never" />
 
-        <!-- Empty State -->
+        <!-- Empty state -->
         <LinearLayout
             android:id="@+id/emptyStateContainer"
             android:layout_width="match_parent"
