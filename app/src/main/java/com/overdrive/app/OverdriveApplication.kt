@@ -5,7 +5,6 @@ import android.util.Log
 import com.overdrive.app.logging.LogConfig
 import com.overdrive.app.logging.LogManager
 import com.overdrive.app.services.DaemonKeepaliveService
-import com.overdrive.app.shell.PrivilegedShellSetup
 import com.overdrive.app.ui.util.PreferencesManager
 
 /**

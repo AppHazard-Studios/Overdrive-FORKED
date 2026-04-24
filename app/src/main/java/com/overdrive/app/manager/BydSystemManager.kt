@@ -6,7 +6,6 @@ import com.overdrive.app.byd.SentryEventHandler
 import com.overdrive.app.client.CameraDaemonClient
 import com.overdrive.app.daemon.management.DaemonManager
 import com.overdrive.app.logging.LogManager
-import com.overdrive.app.shell.PrivilegedShellSetup
 
 /**
  * Manages BYD event system initialization and lifecycle.
@@ -22,91 +21,31 @@ class BydSystemManager(
     }
     
     /**
-     * Initialize the BYD system (privileged shell + permissions + event daemon).
+     * Initialize the BYD system (event daemon only).
+     *
+     * Privileged shell (UID 1000) is intentionally disabled — it caused BYD's default
+     * dashcam to lose signal by elevating camera priority via accmodemanager. All
+     * daemons now run via ADB shell (UID 2000) which is sufficient.
      */
     fun initialize(callback: InitCallback) {
         logManager.info(TAG, "Initializing BYD system...")
-        
         Thread {
-            // Check if shell is already available
-            if (PrivilegedShellSetup.isShellAvailable()) {
-                callback.onProgress("Privileged shell already available")
-                grantBydPermissions(object : PermissionCallback {
-                    override fun onGranted(count: Int) {
-                        callback.onProgress("Granted $count permissions")
-                        startEventSystem(callback)
-                    }
-                    override fun onFailed(count: Int) {
-                        callback.onProgress("Failed to grant $count permissions")
-                        startEventSystem(callback)
-                    }
-                })
-                return@Thread
-            }
-            
-            // Setup privileged shell
-            callback.onProgress("Setting up privileged shell...")
-            PrivilegedShellSetup.init(context)
-            PrivilegedShellSetup.setup(object : PrivilegedShellSetup.SetupCallback {
-                override fun onSuccess() {
-                    callback.onProgress("Privileged shell ready")
-                    grantBydPermissions(object : PermissionCallback {
-                        override fun onGranted(count: Int) {
-                            callback.onProgress("Granted $count permissions")
-                            startEventSystem(callback)
-                        }
-                        override fun onFailed(count: Int) {
-                            callback.onProgress("Failed to grant $count permissions")
-                            startEventSystem(callback)
-                        }
-                    })
-                }
-                
-                override fun onFailure(reason: String) {
-                    callback.onFailure("Shell setup failed: $reason")
-                }
-                
-                override fun onProgress(message: String) {
-                    callback.onProgress(message)
-                }
-            })
+            callback.onProgress("Starting event system...")
+            startEventSystem(callback)
         }.start()
     }
     
     /**
      * Grant BYD-specific permissions.
+     *
+     * Privileged shell removed — permissions are granted externally via ADB before
+     * the app is used. This method is a no-op kept for call-site compatibility.
      */
     fun grantBydPermissions(callback: PermissionCallback) {
         Thread {
-            val permissions = listOf(
-                // BYD hardware permissions
-                "android.permission.BYDAUTO_BODYWORK_COMMON",
-                "android.permission.BYDAUTO_BODYWORK_GET",
-                "android.permission.BYDAUTO_BODYWORK_SET",
-                "android.permission.BYDAUTO_RADAR_GET",
-                "android.permission.BYDAUTO_RADAR_COMMON",
-                // Location permissions for GPS tracking
-                "android.permission.ACCESS_FINE_LOCATION",
-                "android.permission.ACCESS_COARSE_LOCATION",
-                "android.permission.ACCESS_BACKGROUND_LOCATION"
-            )
-            
-            var granted = 0
-            var failed = 0
-            
-            for (perm in permissions) {
-                if (PrivilegedShellSetup.grantPermission(perm)) {
-                    granted++
-                } else {
-                    failed++
-                }
-            }
-            
-            if (failed > 0) {
-                callback.onFailed(failed)
-            } else {
-                callback.onGranted(granted)
-            }
+            logManager.info(TAG, "Permission granting via privileged shell is disabled; " +
+                    "ensure BYD permissions are pre-granted via ADB.")
+            callback.onGranted(0)
         }.start()
     }
     
@@ -114,12 +53,6 @@ class BydSystemManager(
      * Start the BYD event system.
      */
     private fun startEventSystem(callback: InitCallback) {
-        // Start BydEventDaemon
-        val daemonStarted = PrivilegedShellSetup.startBydEventDaemon()
-        if (daemonStarted) {
-            logManager.info(TAG, "BydEventDaemon started")
-        }
-        
         // Setup DaemonClient for camera control
         val camDaemonClient = CameraDaemonClient()
         if (camDaemonClient.connect()) {

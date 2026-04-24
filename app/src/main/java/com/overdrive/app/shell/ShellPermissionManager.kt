@@ -1,11 +1,14 @@
 package com.overdrive.app.shell
 
 import com.overdrive.app.logging.LogManager
+import java.io.BufferedReader
+import java.io.InputStreamReader
 
 /**
  * Manages permission granting via the privileged shell.
  * 
- * Extracts permission-related logic from PrivilegedShellSetup for cleaner separation.
+ * Grants permissions via shell commands. Privileged shell (UID 1000) has been removed;
+ * this now falls back to plain Runtime.exec() which works at ADB shell UID (2000).
  */
 object ShellPermissionManager {
     
@@ -15,10 +18,28 @@ object ShellPermissionManager {
     private val logManager = LogManager.getInstance()
     
     /**
-     * Grant a single permission to our app via the privileged shell.
+     * Run a shell command and return stdout, or null on failure.
+     * Privileged shell (UID 1000) was removed — this falls back to a plain exec.
+     * On BYD the app runs with sufficient ADB-granted permissions so pm grant
+     * is generally a no-op, but we keep the call for compatibility.
+     */
+    private fun execSync(command: String): String? {
+        return try {
+            val proc = Runtime.getRuntime().exec(arrayOf("sh", "-c", command))
+            val out = BufferedReader(InputStreamReader(proc.inputStream)).readText()
+            proc.waitFor()
+            out
+        } catch (e: Exception) {
+            logManager.warn(TAG, "execSync failed: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Grant a single permission to our app via shell.
      */
     fun grantPermission(permission: String): Boolean {
-        val result = PrivilegedShellSetup.executeCommandSync("pm grant $PACKAGE_NAME $permission 2>&1")
+        val result = execSync("pm grant $PACKAGE_NAME $permission 2>&1")
         val success = result?.isEmpty() == true || result?.contains("Success") == true
         
         if (success) {
@@ -156,9 +177,7 @@ object ShellPermissionManager {
      * Check if a permission is granted.
      */
     fun isPermissionGranted(permission: String): Boolean {
-        val result = PrivilegedShellSetup.executeCommandSync(
-            "dumpsys package $PACKAGE_NAME | grep $permission"
-        )
+        val result = execSync("dumpsys package $PACKAGE_NAME | grep $permission")
         return result?.contains("granted=true") == true
     }
     
