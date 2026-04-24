@@ -65,10 +65,24 @@
             android:defaultValue="" />
     </fragment>
 
-    <!-- Global action so any fragment can navigate to video player -->
+    <fragment
+        android:id="@+id/multiCameraPlayerFragment"
+        android:name="com.overdrive.app.ui.fragment.MultiCameraPlayerFragment"
+        android:label="Multi-Camera Player"
+        tools:layout="@layout/fragment_multi_camera_player">
+        <argument
+            android:name="video_path"
+            app:argType="string" />
+        <argument
+            android:name="video_title"
+            app:argType="string"
+            android:defaultValue="" />
+    </fragment>
+
+    <!-- Global action routes to the multi-camera player for all mosaic recordings -->
     <action
         android:id="@+id/action_global_videoPlayer"
-        app:destination="@id/videoPlayerFragment" />
+        app:destination="@id/multiCameraPlayerFragment" />
 
     <fragment
         android:id="@+id/telegramSettingsFragment"
