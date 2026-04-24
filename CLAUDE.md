@@ -14,7 +14,7 @@ Fork of OverDrive — an Android dashcam/sentry app that runs on BYD DiLink v3 h
 ## Repository Setup — Two Remotes
 
 ```
-origin   → https://github.com/AppHazard-Studios/Overdrive-FORKED  (Mike's fork)
+origin   → https://github.com/AppHazard-Studios/Overdrive-FORKED  (My fork)
 upstream → https://github.com/yash-srivastava/Overdrive-release   (Yash's original)
 ```
 
@@ -37,7 +37,7 @@ Both remotes are already configured. `upstream-sync` is a local tracking branch 
 ## Claude Code Behaviour Rules
 
 - Do not add co-author attribution to any commits. No "Co-authored-by: Claude" or any AI attribution in commit messages.
-- Do not create pull requests. Mike does this manually.
+- Do not create pull requests. He does this manually.
 - Do not push unless explicitly asked.
 - Never commit to `main`.
 - Always create a new branch before making changes: `feature/name` or `fix/name`.
@@ -56,7 +56,7 @@ git pull origin main
 git checkout -b feature/my-feature
 # make changes, commit
 git push -u origin feature/my-feature
-# Mike opens PR: feature/my-feature → main on AppHazard-Studios/Overdrive-FORKED
+# He opens PR: feature/my-feature → main on AppHazard-Studios/Overdrive-FORKED
 ```
 
 ### Contributing something upstream
@@ -66,7 +66,7 @@ git push -u origin feature/my-feature
 git checkout -b contrib/my-fix
 git cherry-pick <commit-hash>
 git push -u origin contrib/my-fix
-# Mike opens PR: contrib/my-fix → main on yash-srivastava/Overdrive-release
+# He opens PR: contrib/my-fix → main on yash-srivastava/Overdrive-release
 ```
 
 ### Syncing with upstream (when needed)
