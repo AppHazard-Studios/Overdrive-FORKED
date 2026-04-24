@@ -56,7 +56,7 @@ class MultiCameraGLView @JvmOverloads constructor(
     private var locTexMatrix = 0
     private var locSampler = 0
 
-    @Volatile var primaryCamera: CameraView = CameraView.REAR
+    @Volatile var primaryCamera: CameraView = CameraView.FRONT
         private set
 
     /** Called on the main thread once the Surface is ready for MediaPlayer.setSurface(). */
