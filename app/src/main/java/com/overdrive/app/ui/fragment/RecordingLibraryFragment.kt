@@ -13,12 +13,13 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.overdrive.app.R
 import com.overdrive.app.ui.adapter.RecordingAdapter
 import com.overdrive.app.ui.model.RecordingFile
+import com.overdrive.app.ui.util.PlayerPlaylist
 import com.overdrive.app.ui.util.RecordingScanner
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -173,11 +174,11 @@ class RecordingLibraryFragment : Fragment() {
 
     private fun setupRecordingsList() {
         recordingAdapter = RecordingAdapter(
-            onPlay   = { playRecording(it) },
+            onPlay   = { recording, position -> playRecording(recording, position) },
             onDelete = { confirmDelete(it) }
         )
         recyclerRecordings.apply {
-            layoutManager = LinearLayoutManager(context)
+            layoutManager = GridLayoutManager(context, 2)
             adapter = recordingAdapter
         }
     }
@@ -239,7 +240,14 @@ class RecordingLibraryFragment : Fragment() {
         }
     }
 
-    private fun playRecording(recording: RecordingFile) {
+    private fun playRecording(recording: RecordingFile, position: Int) {
+        // Snapshot the current filtered list into PlayerPlaylist so the player
+        // can navigate prev/next without leaving the player screen.
+        val list = recordingAdapter.currentList
+        PlayerPlaylist.paths        = list.map { it.path }
+        PlayerPlaylist.titles       = list.map { it.name }
+        PlayerPlaylist.currentIndex = position
+
         try {
             val bundle = Bundle().apply {
                 putString(MultiCameraPlayerFragment.ARG_VIDEO_PATH, recording.path)

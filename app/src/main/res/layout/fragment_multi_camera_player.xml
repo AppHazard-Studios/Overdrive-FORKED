@@ -253,6 +253,18 @@
             android:paddingStart="4dp"
             android:paddingEnd="4dp">
 
+            <!-- Skip-previous: hidden when no playlist or already at first item -->
+            <ImageButton
+                android:id="@+id/btnPrev"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_skip_prev"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Previous video"
+                android:tint="#FFFFFF"
+                android:scaleType="centerInside"
+                android:visibility="gone" />
+
             <ImageButton
                 android:id="@+id/btnPlayPause"
                 android:layout_width="40dp"
@@ -262,6 +274,18 @@
                 android:contentDescription="Play/Pause"
                 android:tint="#FFFFFF"
                 android:scaleType="centerInside" />
+
+            <!-- Skip-next: hidden when no playlist or already at last item -->
+            <ImageButton
+                android:id="@+id/btnNext"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_skip_next"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Next video"
+                android:tint="#FFFFFF"
+                android:scaleType="centerInside"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/tvCurrentTime"
