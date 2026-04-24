@@ -82,7 +82,11 @@
     <!-- Global action routes to the multi-camera player for all mosaic recordings -->
     <action
         android:id="@+id/action_global_videoPlayer"
-        app:destination="@id/multiCameraPlayerFragment" />
+        app:destination="@id/multiCameraPlayerFragment"
+        app:enterAnim="@anim/nav_slide_in_right"
+        app:exitAnim="@anim/nav_slide_out_left"
+        app:popEnterAnim="@anim/nav_slide_in_left"
+        app:popExitAnim="@anim/nav_slide_out_right" />
 
     <fragment
         android:id="@+id/telegramSettingsFragment"
