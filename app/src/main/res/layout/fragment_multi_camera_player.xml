@@ -4,17 +4,18 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <!-- GL view fills the entire screen; controls overlay on top -->
+    <!-- GL view fills the entire screen; overlays sit on top -->
     <com.overdrive.app.ui.view.MultiCameraGLView
         android:id="@+id/glView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
     <!--
-        Transparent tap-target overlay that mirrors the GL quad layout:
-        - Left 75%: primary area (label only, no tap action)
-        - Right 25%: three equal rows, each tappable to swap primary camera
-        The black GL clear colour provides natural dividers through the gaps.
+        Camera column overlay — mirrors the GL quad positions exactly:
+          Left 74%: large primary area. Tappable to toggle controls.
+          Right 26%: four equal rows, one per camera, all tappable.
+        The selected camera row shows a brand-colour left border.
+        Always visible so the camera thumbnails are always accessible.
     -->
     <LinearLayout
         android:id="@+id/cameraOverlay"
@@ -22,43 +23,38 @@
         android:layout_height="match_parent"
         android:orientation="horizontal">
 
-        <!-- Primary region: label in top-left corner, rest passes touch through -->
-        <FrameLayout
+        <!-- Large primary area: tap here to toggle playback controls -->
+        <View
+            android:id="@+id/primaryTapTarget"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="3">
+            android:layout_weight="74" />
 
-            <TextView
-                android:id="@+id/tvPrimaryLabel"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="start|top"
-                android:layout_margin="8dp"
-                android:paddingHorizontal="6dp"
-                android:paddingVertical="2dp"
-                android:background="#66000000"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:fontFamily="sans-serif-medium"
-                android:text="REAR" />
-        </FrameLayout>
-
-        <!-- Small column: three tappable camera cells -->
+        <!-- Right column: all four cameras, each tappable -->
         <LinearLayout
+            android:id="@+id/cameraColumn"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="1"
+            android:layout_weight="26"
             android:orientation="vertical">
 
             <FrameLayout
-                android:id="@+id/smallCam0"
+                android:id="@+id/camCellFront"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="?attr/selectableItemBackground">
+                android:foreground="?attr/selectableItemBackground">
+
+                <View
+                    android:id="@+id/camActiveFront"
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:background="@color/brand_primary"
+                    android:visibility="gone" />
 
                 <TextView
-                    android:id="@+id/tvSmallLabel0"
+                    android:id="@+id/tvCamLabelFront"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|start"
@@ -68,18 +64,27 @@
                     android:background="#66000000"
                     android:textColor="#CCFFFFFF"
                     android:textSize="9sp"
+                    android:fontFamily="sans-serif-medium"
                     android:text="FRONT" />
             </FrameLayout>
 
             <FrameLayout
-                android:id="@+id/smallCam1"
+                android:id="@+id/camCellRight"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="?attr/selectableItemBackground">
+                android:foreground="?attr/selectableItemBackground">
+
+                <View
+                    android:id="@+id/camActiveRight"
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:background="@color/brand_primary"
+                    android:visibility="gone" />
 
                 <TextView
-                    android:id="@+id/tvSmallLabel1"
+                    android:id="@+id/tvCamLabelRight"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|start"
@@ -89,18 +94,27 @@
                     android:background="#66000000"
                     android:textColor="#CCFFFFFF"
                     android:textSize="9sp"
+                    android:fontFamily="sans-serif-medium"
                     android:text="RIGHT" />
             </FrameLayout>
 
             <FrameLayout
-                android:id="@+id/smallCam2"
+                android:id="@+id/camCellRear"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:background="?attr/selectableItemBackground">
+                android:foreground="?attr/selectableItemBackground">
+
+                <View
+                    android:id="@+id/camActiveRear"
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:background="@color/brand_primary"
+                    android:visibility="gone" />
 
                 <TextView
-                    android:id="@+id/tvSmallLabel2"
+                    android:id="@+id/tvCamLabelRear"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom|start"
@@ -110,12 +124,47 @@
                     android:background="#66000000"
                     android:textColor="#CCFFFFFF"
                     android:textSize="9sp"
+                    android:fontFamily="sans-serif-medium"
+                    android:text="REAR" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:id="@+id/camCellLeft"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:foreground="?attr/selectableItemBackground">
+
+                <View
+                    android:id="@+id/camActiveLeft"
+                    android:layout_width="3dp"
+                    android:layout_height="match_parent"
+                    android:layout_gravity="start"
+                    android:background="@color/brand_primary"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:id="@+id/tvCamLabelLeft"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|start"
+                    android:layout_margin="4dp"
+                    android:paddingHorizontal="4dp"
+                    android:paddingVertical="1dp"
+                    android:background="#66000000"
+                    android:textColor="#CCFFFFFF"
+                    android:textSize="9sp"
+                    android:fontFamily="sans-serif-medium"
                     android:text="LEFT" />
             </FrameLayout>
+
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Top bar: back + title + file size -->
+    <!--
+        Top bar: back + title + meta.
+        Starts GONE. Tap the large area to reveal; auto-hides after 3 s of playback.
+    -->
     <LinearLayout
         android:id="@+id/topBar"
         android:layout_width="match_parent"
@@ -124,7 +173,8 @@
         android:gravity="center_vertical"
         android:padding="12dp"
         android:background="#80000000"
-        android:layout_gravity="top">
+        android:layout_gravity="top"
+        android:visibility="gone">
 
         <ImageButton
             android:id="@+id/btnBack"
@@ -156,7 +206,11 @@
             android:textSize="12sp" />
     </LinearLayout>
 
-    <!-- Bottom controls: timeline + seekbar + play/pause + time -->
+    <!--
+        Bottom controls: seekbar + play/pause + time.
+        Starts GONE. Shown when top bar is revealed.
+        Event timeline removed — the single seekbar is cleaner.
+    -->
     <LinearLayout
         android:id="@+id/bottomControls"
         android:layout_width="match_parent"
@@ -164,24 +218,24 @@
         android:orientation="vertical"
         android:layout_gravity="bottom"
         android:background="#CC000000"
-        android:padding="8dp">
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone">
 
-        <FrameLayout
+        <!--
+            Event detection timeline: thin 8dp strip of colored markers sitting
+            directly above the seekbar, so it reads as a single integrated scrub control.
+            Duration is set from mp.duration (not the JSON) to guarantee sync.
+        -->
+        <com.overdrive.app.ui.view.EventTimelineView
+            android:id="@+id/eventTimeline"
             android:layout_width="match_parent"
-            android:layout_height="32dp"
-            android:layout_marginBottom="4dp">
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="20dp"
-                android:layout_gravity="center_vertical"
-                android:background="#33FFFFFF" />
-
-            <com.overdrive.app.ui.view.EventTimelineView
-                android:id="@+id/eventTimeline"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-        </FrameLayout>
+            android:layout_height="8dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="2dp" />
 
         <SeekBar
             android:id="@+id/seekBar"
@@ -236,12 +290,7 @@
                 android:textSize="13sp"
                 android:fontFamily="monospace" />
 
-            <TextView
-                android:id="@+id/tvEventInfo"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="#B0FFFFFF"
-                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
+
 </FrameLayout>

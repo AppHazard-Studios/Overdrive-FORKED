@@ -34,9 +34,28 @@ class EventTimelineView @JvmOverloads constructor(
     private val paintBike = Paint().apply { color = 0xCC44CC44.toInt(); isAntiAlias = true }
     private val paintPlayhead = Paint().apply { color = 0xFFFFFFFF.toInt(); isAntiAlias = true }
 
-    fun setEvents(events: List<TimelineEvent>, durationMs: Long) {
-        this.events = events
+    /**
+     * Set the total video duration. Call this from onPrepared() using mp.duration
+     * so it matches the seekbar's scale exactly — never from the JSON sidecar value.
+     */
+    fun setDuration(durationMs: Long) {
         this.durationMs = durationMs
+        invalidate()
+    }
+
+    /**
+     * Set event markers. Duration must already be set via setDuration() before
+     * calling this so markers render at the correct positions.
+     */
+    fun setEvents(events: List<TimelineEvent>) {
+        this.events = events
+        invalidate()
+    }
+
+    /** Legacy overload — prefer setDuration() + setEvents() separately. */
+    fun setEvents(events: List<TimelineEvent>, durationMs: Long) {
+        this.durationMs = durationMs
+        this.events = events
         invalidate()
     }
 
