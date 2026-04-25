@@ -307,23 +307,23 @@ BYD.events = {
         list.innerHTML = this.recordings.map(rec => {
             const thumbId = 'thumb-' + rec.filename.replace(/[^a-zA-Z0-9]/g, '_');
             const badge = rec.type === 'sentry' ? 'Sentry' : rec.type === 'proximity' ? 'Proximity' : 'Normal';
-            const fname = rec.filename.length > 28 ? rec.filename.substring(0, 25) + '...' : rec.filename;
-            
-            // Start with placeholder, load thumbnail async
+
+            // Thumbnail stacked above footer; metadata sits below image, not over it
             return '<div class="recording-card" onclick="BYD.events.playVideo(\'' + rec.filename + '\')">' +
                 '<div class="recording-thumbnail" id="' + thumbId + '" data-thumb="' + (rec.thumbnailUrl || '') + '">' +
                 '<div class="thumb-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2"/></svg></div>' +
                 '<div class="play-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="white"><polygon points="5 3 19 12 5 21 5 3"/></svg></div>' +
                 (rec.duration ? '<span class="duration-badge">' + rec.duration + '</span>' : '') +
                 '</div>' +
+                '<div class="recording-footer">' +
                 '<div class="recording-info">' +
-                '<div class="recording-name"><span class="recording-badge ' + rec.type + '">' + badge + '</span>' + fname + '</div>' +
-                '<div class="recording-meta"><span>' + rec.dateFormatted + '</span><span>' + rec.timeFormatted + '</span><span>' + rec.sizeFormatted + '</span></div>' +
+                '<span class="recording-badge ' + rec.type + '">' + badge + '</span>' +
+                '<div class="recording-meta">' + rec.dateFormatted + ' · ' + rec.timeFormatted + '</div>' +
                 '</div>' +
                 '<div class="recording-actions">' +
-                '<button class="action-btn" onclick="event.stopPropagation(); BYD.events.downloadVideo(\'' + rec.filename + '\')" title="Download"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>' +
-                '<button class="action-btn delete" onclick="event.stopPropagation(); BYD.events.deleteRecording(\'' + rec.filename + '\')" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
-                '</div></div>';
+                '<button class="action-btn" onclick="event.stopPropagation(); BYD.events.downloadVideo(\'' + rec.filename + '\')" title="Download"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>' +
+                '<button class="action-btn delete" onclick="event.stopPropagation(); BYD.events.deleteRecording(\'' + rec.filename + '\')" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>' +
+                '</div></div></div>';
         }).join('');
         
         // Load thumbnails async after render

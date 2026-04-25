@@ -14,6 +14,10 @@ import com.overdrive.app.telemetry.TelemetryDataCollector;
 import com.overdrive.app.telemetry.TelemetrySnapshot;
 
 import java.nio.FloatBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  * GpuMosaicRecorder - GPU-based 2x2 grid compositor for zero-copy recording.
@@ -75,6 +79,11 @@ public class GpuMosaicRecorder {
     private volatile boolean overlayRecordingModeAllowed = false;
     private boolean overlayTextureReady = false;
     
+    // Telemetry accumulation for sidecar JSON (written on file close)
+    private long recordingStartMs = 0;
+    private final List<long[]> telemetryLog = new ArrayList<>();
+    private int telemetrySnapshotCounter = 0;
+
     // Frame skip tracking - prevents eglSwapBuffers from blocking GL thread
     // When encoder is backed up (SD card I/O), skip rendering to keep camera HAL flowing
     private long lastDrawDurationNs = 0;
@@ -221,6 +230,16 @@ public class GpuMosaicRecorder {
             } catch (Exception e) {
                 logger.warn("Storage cleanup after file close failed: " + e.getMessage());
             }
+
+            // Write telemetry sidecar alongside the closed MP4
+            try {
+                String closedPath = encoder.getCurrentOutputPath();
+                if (closedPath != null && closedPath.endsWith(".mp4")) {
+                    writeTelemetrySidecar(closedPath);
+                }
+            } catch (Exception e) {
+                logger.warn("Telemetry sidecar write failed: " + e.getMessage());
+            }
         });
         
         // Get encoder's input surface
@@ -265,8 +284,12 @@ public class GpuMosaicRecorder {
             GLES20.glGenTextures(1, texIds, 0);
             overlayTextureId = texIds[0];
             
-            // Overlay quad: top 160px of 1920px frame
-            // NDC Y: +1.0 (top) down to +1.0 - 0.1667 = +0.8333
+            // Overlay quad: full-width top strip (x: -1.0 → +1.0), top 160px of 1920px frame.
+            // The 1280×80 bitmap stretches 2× horizontally to 2560px; the pill (barL=200,
+            // barR=1080) appears visually centred with transparent margins either side.
+            // In MultiCameraGLView playback this spans both top quadrants — intentional.
+            // The burn-in is the evidence copy for insurance/export. The player shows the
+            // same data cleanly via TelemetryBarView without any split artefact.
             float[] overlayVertexCoords = {
                 -1.0f,  0.8333f,
                  1.0f,  0.8333f,
@@ -469,10 +492,25 @@ public class GpuMosaicRecorder {
             consecutiveSlowFrames = 0;
         }
 
-        // Update stats (only count if actually recording to file)
+        // Update stats and accumulate telemetry (~5 fps) while recording to file
         if (recording) {
             lastFrameTime = System.currentTimeMillis();
             frameCount++;
+            telemetrySnapshotCounter++;
+            if (telemetrySnapshotCounter % 3 == 0 && telemetryCollector != null) {
+                TelemetrySnapshot snap = telemetryCollector.getLatestSnapshot();
+                if (snap != null) {
+                    int signals = (snap.leftTurnSignal ? 1 : 0) | (snap.rightTurnSignal ? 2 : 0);
+                    telemetryLog.add(new long[]{
+                        System.currentTimeMillis() - recordingStartMs,
+                        snap.speedKmh,
+                        snap.gearMode,
+                        snap.accelPedalPercent,
+                        snap.brakePedalPercent,
+                        signals
+                    });
+                }
+            }
         }
 
 
@@ -493,7 +531,10 @@ public class GpuMosaicRecorder {
         if (encoder != null && encoder.triggerEventRecording(outputPath, 5000)) {  // Default 5 sec post-record
             recording = true;
             frameCount = 0;
-            
+            recordingStartMs = System.currentTimeMillis();
+            telemetryLog.clear();
+            telemetrySnapshotCounter = 0;
+
             // SOTA: Notify StorageManager that recording is active (for periodic cleanup)
             try {
                 com.overdrive.app.storage.StorageManager.getInstance().setRecordingActive(true);
@@ -522,6 +563,9 @@ public class GpuMosaicRecorder {
         if (encoder != null && encoder.triggerEventRecording(outputPath, postRecordDurationMs)) {
             recording = true;
             frameCount = 0;
+            recordingStartMs = System.currentTimeMillis();
+            telemetryLog.clear();
+            telemetrySnapshotCounter = 0;
             logger.info("Recording started: " + outputPath);
         } else {
             logger.error("Failed to start encoder recording");
@@ -725,6 +769,41 @@ public class GpuMosaicRecorder {
         }
     }
     
+    private void writeTelemetrySidecar(String mp4Path) {
+        List<long[]> snapshot = new ArrayList<>(telemetryLog);
+        if (snapshot.isEmpty()) return;
+        try {
+            String jsonPath = mp4Path.replace(".mp4", ".json");
+            java.io.File jsonFile = new java.io.File(jsonPath);
+            JSONObject root = new JSONObject();
+            if (jsonFile.exists()) {
+                try {
+                    java.util.Scanner sc = new java.util.Scanner(jsonFile).useDelimiter("\\A");
+                    if (sc.hasNext()) root = new JSONObject(sc.next());
+                } catch (Exception ignored) {}
+            }
+            JSONArray arr = new JSONArray();
+            for (long[] e : snapshot) {
+                JSONObject t = new JSONObject();
+                t.put("t",     e[0]);
+                t.put("spd",   e[1]);
+                t.put("gear",  e[2]);
+                t.put("accel", e[3]);
+                t.put("brake", e[4]);
+                if ((e[5] & 1) != 0) t.put("lt", true);
+                if ((e[5] & 2) != 0) t.put("rt", true);
+                arr.put(t);
+            }
+            root.put("telemetry", arr);
+            java.io.FileWriter fw = new java.io.FileWriter(jsonFile);
+            fw.write(root.toString());
+            fw.close();
+            logger.info("Telemetry sidecar: " + snapshot.size() + " samples → " + jsonPath);
+        } catch (Exception e) {
+            logger.warn("Telemetry sidecar write failed: " + e.getMessage());
+        }
+    }
+
     /**
      * Releases all resources.
      */
