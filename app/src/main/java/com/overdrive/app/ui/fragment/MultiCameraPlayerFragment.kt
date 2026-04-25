@@ -21,6 +21,7 @@ import com.overdrive.app.ui.util.PlayerPlaylist
 import com.overdrive.app.ui.view.CameraView
 import com.overdrive.app.ui.view.EventTimelineView
 import com.overdrive.app.ui.view.MultiCameraGLView
+import com.overdrive.app.ui.view.TelemetryBarView
 import org.json.JSONObject
 import java.io.File
 
@@ -60,6 +61,7 @@ class MultiCameraPlayerFragment : Fragment() {
     private lateinit var btnBack:          ImageButton
     private lateinit var btnPrev:          ImageButton
     private lateinit var btnNext:          ImageButton
+    private lateinit var telemetryBar:     TelemetryBarView
 
     private val camCells      = mutableMapOf<CameraView, FrameLayout>()
     private val camIndicators = mutableMapOf<CameraView, View>()
@@ -78,6 +80,7 @@ class MultiCameraPlayerFragment : Fragment() {
                 seekBar.progress = pos
                 tvCurrentTime.text = formatTime(pos)
                 eventTimeline.setPlayhead(pos.toLong())
+                telemetryBar.setPosition(pos.toLong())
             }
             handler.postDelayed(this, SEEK_UPDATE_MS)
         }
@@ -110,6 +113,7 @@ class MultiCameraPlayerFragment : Fragment() {
         btnBack          = view.findViewById(R.id.btnBack)
         btnPrev          = view.findViewById(R.id.btnPrev)
         btnNext          = view.findViewById(R.id.btnNext)
+        telemetryBar     = view.findViewById(R.id.telemetryBar)
 
         camCells[CameraView.FRONT] = view.findViewById(R.id.camCellFront)
         camCells[CameraView.RIGHT] = view.findViewById(R.id.camCellRight)
@@ -178,7 +182,7 @@ class MultiCameraPlayerFragment : Fragment() {
                 player.start()
                 btnPlayPause.setImageResource(android.R.drawable.ic_media_pause)
                 handler.post(updateRunnable)
-                loadEventMarkers(path)
+                loadSidecarData(path)
             }
             setOnErrorListener { _, what, extra ->
                 android.util.Log.e("MultiCamPlayer", "MediaPlayer error: what=$what extra=$extra")
@@ -207,33 +211,58 @@ class MultiCameraPlayerFragment : Fragment() {
         tvCurrentTime.text = "0:00"
         tvDuration.text = "0:00"
         eventTimeline.setEvents(emptyList())
+        telemetryBar.setTelemetryData(emptyList())
+        telemetryBar.visibility = View.GONE
         updatePlaylistButtons()
 
         val surface = currentSurface ?: return
         startMediaPlayer(path, surface)
     }
 
-    private fun loadEventMarkers(videoPath: String) {
+    private fun loadSidecarData(videoPath: String) {
         Thread {
             try {
                 val jsonFile = File(videoPath.replace(".mp4", ".json"))
                 if (!jsonFile.exists()) return@Thread
                 val json = JSONObject(jsonFile.readText())
-                val arr  = json.optJSONArray("events") ?: return@Thread
 
-                val events = (0 until arr.length()).map { i ->
-                    val ev = arr.getJSONObject(i)
-                    EventTimelineView.TimelineEvent(
-                        startMs    = ev.getLong("start"),
-                        endMs      = ev.getLong("end"),
-                        type       = ev.optString("type", "motion"),
-                        confidence = ev.optDouble("maxConf", 0.0).toFloat()
-                    )
+                // Detection event markers
+                val arr = json.optJSONArray("events")
+                if (arr != null) {
+                    val events = (0 until arr.length()).map { i ->
+                        val ev = arr.getJSONObject(i)
+                        EventTimelineView.TimelineEvent(
+                            startMs    = ev.getLong("start"),
+                            endMs      = ev.getLong("end"),
+                            type       = ev.optString("type", "motion"),
+                            confidence = ev.optDouble("maxConf", 0.0).toFloat()
+                        )
+                    }
+                    activity?.runOnUiThread { eventTimeline.setEvents(events) }
                 }
 
-                activity?.runOnUiThread { eventTimeline.setEvents(events) }
+                // Telemetry bar data
+                val telArr = json.optJSONArray("telemetry")
+                if (telArr != null && telArr.length() > 0) {
+                    val telEntries = (0 until telArr.length()).map { i ->
+                        val t = telArr.getJSONObject(i)
+                        TelemetryBarView.TelemetryEntry(
+                            tMs         = t.getLong("t"),
+                            speedKmh    = t.optInt("spd", 0),
+                            gearMode    = t.optInt("gear", 1),
+                            accelPct    = t.optInt("accel", 0),
+                            brakePct    = t.optInt("brake", 0),
+                            leftSignal  = t.optBoolean("lt", false),
+                            rightSignal = t.optBoolean("rt", false)
+                        )
+                    }
+                    activity?.runOnUiThread {
+                        telemetryBar.setTelemetryData(telEntries)
+                        telemetryBar.visibility = View.VISIBLE
+                    }
+                }
             } catch (e: Exception) {
-                android.util.Log.e("MultiCamPlayer", "Event markers load failed: ${e.message}")
+                android.util.Log.e("MultiCamPlayer", "Sidecar load failed: ${e.message}")
             }
         }.start()
     }

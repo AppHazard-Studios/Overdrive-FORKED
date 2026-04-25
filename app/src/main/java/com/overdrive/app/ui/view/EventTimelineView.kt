@@ -76,7 +76,7 @@ class EventTimelineView @JvmOverloads constructor(
         // Draw event spans
         for (ev in events) {
             val left = (ev.startMs.toFloat() / durationMs) * w
-            val right = ((ev.endMs.toFloat() / durationMs) * w).coerceAtLeast(left + 2f)
+            val right = ((ev.endMs.toFloat() / durationMs) * w).coerceAtLeast(left + 4f)
             val paint = when (ev.type) {
                 "person" -> paintPerson
                 "car" -> paintCar
