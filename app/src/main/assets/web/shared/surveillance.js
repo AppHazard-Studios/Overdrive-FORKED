@@ -64,8 +64,11 @@ BYD.surveillance = {
     flashImmunityMap: { 0: 'SENSITIVE', 1: 'NORMAL', 2: 'STRICT', 3: 'MAX' },
 
     async init() {
-        await this.loadConfig();
-        await this.loadStorageStats();
+        // Run independent fetches in parallel — cuts load time significantly
+        await Promise.all([
+            this.loadConfig(),
+            this.loadStorageStats()
+        ]);
         this.savedConfig = JSON.parse(JSON.stringify(this.config));
         this.updateUI();
         this.startClock();
