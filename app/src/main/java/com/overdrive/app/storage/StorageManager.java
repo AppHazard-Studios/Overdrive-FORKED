@@ -184,9 +184,9 @@ public class StorageManager {
     private static final long SD_WATCHDOG_INTERVAL_SECONDS = 15;
     
     private StorageManager() {
+        loadConfig();       // Must come first so storage types are known before dirs are created
         discoverSdCard();
         initDirectories();
-        loadConfig();
         
         // SOTA: If config says SD card but it's not available, try to mount it
         // This happens when daemon starts and SD card is unmounted
@@ -424,12 +424,26 @@ public class StorageManager {
         sdCardPath = null;
         sdCardAvailable = false;
         
-        // Method 1: Check using 'sm list-volumes all' for mounted public volumes
+        // Method 1: BYD system property — identifies the actual SD card UUID, not USB drives.
+        // Check this first to avoid mistaking a USB drive for the SD card.
+        String sdUuid = getSystemProperty("sys.byd.mSdcardUuid");
+        if (sdUuid != null && !sdUuid.isEmpty()) {
+            String uuidPath = "/storage/" + sdUuid;
+            File uuidDir = new File(uuidPath);
+            if (uuidDir.exists() && uuidDir.isDirectory() && uuidDir.canWrite()) {
+                sdCardPath = uuidPath;
+                sdCardAvailable = true;
+                logInfo("Found SD card via BYD UUID: " + sdCardPath);
+                return;
+            }
+        }
+
+        // Method 2: Check using 'sm list-volumes all' for mounted public volumes
         try {
             Process listProcess = Runtime.getRuntime().exec(new String[]{"sm", "list-volumes", "all"});
             BufferedReader reader = new BufferedReader(new InputStreamReader(listProcess.getInputStream()));
             String line;
-            
+
             while ((line = reader.readLine()) != null) {
                 // Parse lines like: "public:8,97 mounted 3661-3064"
                 line = line.trim();
@@ -439,7 +453,7 @@ public class StorageManager {
                         String volumeUuid = parts[2];  // e.g., "3661-3064"
                         String mountPath = "/storage/" + volumeUuid;
                         File mountDir = new File(mountPath);
-                        
+
                         if (mountDir.exists() && mountDir.isDirectory() && mountDir.canWrite()) {
                             sdCardPath = mountPath;
                             sdCardAvailable = true;
@@ -456,20 +470,7 @@ public class StorageManager {
         } catch (Exception e) {
             logDebug("Could not check sm list-volumes: " + e.getMessage());
         }
-        
-        // Method 2: Check BYD system property for SD card UUID
-        String sdUuid = getSystemProperty("sys.byd.mSdcardUuid");
-        if (sdUuid != null && !sdUuid.isEmpty()) {
-            String uuidPath = "/storage/" + sdUuid;
-            File uuidDir = new File(uuidPath);
-            if (uuidDir.exists() && uuidDir.isDirectory() && uuidDir.canWrite()) {
-                sdCardPath = uuidPath;
-                sdCardAvailable = true;
-                logInfo("Found SD card via BYD UUID: " + sdCardPath);
-                return;
-            }
-        }
-        
+
         // Method 3: Scan /storage/ for mounted volumes
         try {
             File storageDir = new File("/storage");
@@ -581,8 +582,13 @@ public class StorageManager {
         internalTripsDir.setReadable(true, false);
         internalTripsDir.setExecutable(true, false);
         
-        // Initialize SD card directories if available
-        initSdCardDirectories();
+        // Only create SD card directories when at least one storage type actually uses SD card.
+        // Guards against creating Overdrive/ folders on USB drives plugged in while storage is INTERNAL.
+        if (recordingsStorageType == StorageType.SD_CARD ||
+                surveillanceStorageType == StorageType.SD_CARD ||
+                tripsStorageType == StorageType.SD_CARD) {
+            initSdCardDirectories();
+        }
     }
     
     /**
@@ -597,7 +603,11 @@ public class StorageManager {
             return;
         }
         
-        File sdBaseDir = new File(sdCardPath, "Overdrive");
+        // Use the app's own external storage directory on the SD card.
+        // The app UID has unconditional access to Android/data/com.overdrive.app/files/
+        // by Android design; direct /storage/UUID/Overdrive/ access is blocked by FUSE
+        // for non-system UIDs even with world-readable bits set.
+        File sdBaseDir = new File(sdCardPath, "Android/data/com.overdrive.app/files/Overdrive");
         
         // Always try to create directories (mkdirs is idempotent)
         // This handles the case where SD card was remounted

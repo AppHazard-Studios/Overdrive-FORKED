@@ -42,128 +42,75 @@ object RecordingScanner {
     
     /**
      * Load storage configuration and determine active directories.
-     * Reads from /data/local/tmp/overdrive_config.json to get storage type settings.
+     *
+     * For SD card types, uses context.getExternalFilesDirs() rather than constructing
+     * a raw /storage/UUID/ path. The app UID has unconditional access to its own package
+     * directory on any external volume; direct access to /storage/UUID/ is blocked by
+     * FUSE/Android even with world-readable bits set by the daemon.
+     *
+     * StorageManager (daemon) writes to:
+     *   /storage/UUID/Android/data/com.overdrive.app/files/Overdrive/<subdir>/
+     *
+     * getExternalFilesDirs(null) returns:
+     *   /storage/UUID/Android/data/com.overdrive.app/files/
+     * so appending "Overdrive/<subdir>" gives the matching path.
      */
-    private fun loadStorageConfig() {
+    private fun loadStorageConfig(context: Context) {
         val now = System.currentTimeMillis()
-        
-        // Return cached config if still valid
-        if (cachedRecordingsDir != null && now - configCacheTimestamp < CONFIG_CACHE_VALIDITY_MS) {
-            return
-        }
-        
+        if (cachedRecordingsDir != null && now - configCacheTimestamp < CONFIG_CACHE_VALIDITY_MS) return
+
         var recordingsStorageType = "INTERNAL"
         var surveillanceStorageType = "INTERNAL"
-        var sdCardPath: String? = null
-        
+
         try {
             val configFile = File(CONFIG_FILE)
             if (configFile.exists()) {
-                val reader = BufferedReader(FileReader(configFile))
-                val sb = StringBuilder()
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    sb.append(line)
-                }
-                reader.close()
-                
-                val config = JSONObject(sb.toString())
+                val config = JSONObject(configFile.readText())
                 val storage = config.optJSONObject("storage")
                 if (storage != null) {
                     recordingsStorageType = storage.optString("recordingsStorageType", "INTERNAL")
                     surveillanceStorageType = storage.optString("surveillanceStorageType", "INTERNAL")
-                    // Read daemon-resolved SD card path directly; app UID cannot re-discover
-                    // it because canRead()/canWrite() on /storage/<UUID>/ returns false for
-                    // normal UIDs even though subdirectory access works fine.
-                    val savedPath = storage.optString("sdCardPath", "")
-                    if (savedPath.isNotEmpty()) {
-                        sdCardPath = savedPath
-                    }
                 }
-
-                Log.d(TAG, "Loaded config: recordings=$recordingsStorageType, surveillance=$surveillanceStorageType, sdCard=$sdCardPath")
+                Log.d(TAG, "Loaded config: recordings=$recordingsStorageType, surveillance=$surveillanceStorageType")
             }
         } catch (e: Exception) {
             Log.w(TAG, "Could not load storage config: ${e.message}")
         }
 
-        // Fall back to local discovery only if daemon hasn't persisted the path yet
-        if (sdCardPath == null && (recordingsStorageType == "SD_CARD" || surveillanceStorageType == "SD_CARD")) {
-            sdCardPath = discoverSdCardPath()
-            Log.d(TAG, "SD card path (discovered): $sdCardPath")
+        // Resolve the SD card Overdrive base directory using the Android API.
+        // This gives us the exact path the app UID can access on removable storage.
+        var sdOverdriveBase: File? = null
+        if (recordingsStorageType == "SD_CARD" || surveillanceStorageType == "SD_CARD") {
+            val sdAppDir = context.getExternalFilesDirs(null).firstOrNull { dir ->
+                dir != null && dir.absolutePath.contains("/storage/") &&
+                    !dir.absolutePath.contains("/emulated/")
+            }
+            if (sdAppDir != null) {
+                sdOverdriveBase = File(sdAppDir, "Overdrive")
+                Log.d(TAG, "SD card app dir: ${sdAppDir.absolutePath}")
+            } else {
+                Log.w(TAG, "SD_CARD configured but no removable storage found via getExternalFilesDirs")
+            }
         }
-        
-        // Set recordings directory
-        cachedRecordingsDir = if (recordingsStorageType == "SD_CARD" && sdCardPath != null) {
-            File(sdCardPath, "Overdrive/$RECORDINGS_SUBDIR")
-        } else {
+
+        cachedRecordingsDir = if (recordingsStorageType == "SD_CARD" && sdOverdriveBase != null)
+            File(sdOverdriveBase, RECORDINGS_SUBDIR)
+        else
             File(INTERNAL_BASE_DIR, RECORDINGS_SUBDIR)
-        }
-        
-        // Set surveillance directory
-        cachedSurveillanceDir = if (surveillanceStorageType == "SD_CARD" && sdCardPath != null) {
-            File(sdCardPath, "Overdrive/$SURVEILLANCE_SUBDIR")
-        } else {
+
+        cachedSurveillanceDir = if (surveillanceStorageType == "SD_CARD" && sdOverdriveBase != null)
+            File(sdOverdriveBase, SURVEILLANCE_SUBDIR)
+        else
             File(INTERNAL_BASE_DIR, SURVEILLANCE_SUBDIR)
-        }
-        
-        // Proximity follows surveillance storage type
-        cachedProximityDir = if (surveillanceStorageType == "SD_CARD" && sdCardPath != null) {
-            File(sdCardPath, "Overdrive/$PROXIMITY_SUBDIR")
-        } else {
+
+        cachedProximityDir = if (surveillanceStorageType == "SD_CARD" && sdOverdriveBase != null)
+            File(sdOverdriveBase, PROXIMITY_SUBDIR)
+        else
             File(INTERNAL_BASE_DIR, PROXIMITY_SUBDIR)
-        }
-        
+
         configCacheTimestamp = now
-        
-        Log.d(TAG, "Active directories: recordings=${cachedRecordingsDir?.absolutePath}, " +
-            "surveillance=${cachedSurveillanceDir?.absolutePath}, proximity=${cachedProximityDir?.absolutePath}")
-    }
-    
-    /**
-     * Discover SD card mount path using multiple methods.
-     */
-    private fun discoverSdCardPath(): String? {
-        // Method 1: Scan /storage/ for mounted volumes with UUID format (e.g., "3661-3064")
-        try {
-            val storageDir = File("/storage")
-            if (storageDir.exists() && storageDir.isDirectory) {
-                val volumes = storageDir.listFiles()
-                if (volumes != null) {
-                    for (vol in volumes) {
-                        val name = vol.name
-                        // Skip emulated and self
-                        if (name == "emulated" || name == "self" || name.startsWith(".")) {
-                            continue
-                        }
-                        // Check if it's a mounted SD card (UUID format like "3661-3064")
-                        if (vol.isDirectory && vol.canRead() && name.contains("-")) {
-                            Log.d(TAG, "Found SD card at: ${vol.absolutePath}")
-                            return vol.absolutePath
-                        }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.d(TAG, "Could not scan /storage: ${e.message}")
-        }
-        
-        // Method 2: Check known paths
-        val knownPaths = arrayOf(
-            "/storage/external_sd",
-            "/storage/sdcard1",
-            "/mnt/external_sd",
-            "/mnt/sdcard/external_sd"
-        )
-        for (path in knownPaths) {
-            val dir = File(path)
-            if (dir.exists() && dir.isDirectory && dir.canRead()) {
-                Log.d(TAG, "Found SD card at known path: $path")
-                return path
-            }
-        }
-        
-        return null
+        Log.d(TAG, "Active dirs: recordings=${cachedRecordingsDir?.absolutePath}, " +
+            "surveillance=${cachedSurveillanceDir?.absolutePath}")
     }
     
     /**
@@ -181,7 +128,7 @@ object RecordingScanner {
         }
         
         // Load storage config to get active directories
-        loadStorageConfig()
+        loadStorageConfig(context)
         
         // Scan configured directories
         val normal = scanDirectory(cachedRecordingsDir ?: File(INTERNAL_BASE_DIR, RECORDINGS_SUBDIR), RecordingFile.RecordingType.NORMAL)
@@ -246,7 +193,7 @@ object RecordingScanner {
      * Get the recordings directory (respects configured storage type).
      */
     fun getRecordingsDir(context: Context): File {
-        loadStorageConfig()
+        loadStorageConfig(context)
         return cachedRecordingsDir ?: File(INTERNAL_BASE_DIR, RECORDINGS_SUBDIR)
     }
     
@@ -254,7 +201,7 @@ object RecordingScanner {
      * Get the sentry events directory (respects configured storage type).
      */
     fun getSentryEventsDir(context: Context): File {
-        loadStorageConfig()
+        loadStorageConfig(context)
         return cachedSurveillanceDir ?: File(INTERNAL_BASE_DIR, SURVEILLANCE_SUBDIR)
     }
     
@@ -262,7 +209,7 @@ object RecordingScanner {
      * Get the proximity events directory (respects configured storage type).
      */
     fun getProximityEventsDir(context: Context): File {
-        loadStorageConfig()
+        loadStorageConfig(context)
         return cachedProximityDir ?: File(INTERNAL_BASE_DIR, PROXIMITY_SUBDIR)
     }
     
