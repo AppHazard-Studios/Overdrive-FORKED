@@ -149,8 +149,20 @@ public class RecordingsApiHandler {
         return handle(method, path, null, out);
     }
     
+    // Storage stats cache — avoids repeated expensive directory scans on every page load/poll.
+    // TTL of 8 seconds: cheap enough to feel live, long enough to cover the 10-second poll cycle.
+    private static volatile String statsCache = null;
+    private static volatile long statsCacheTime = 0L;
+    private static final long STATS_CACHE_TTL_MS = 8_000L;
+
+    /** Invalidate the stats cache (call after any recording is added or deleted). */
+    static void invalidateStatsCache() {
+        statsCache = null;
+        statsCacheTime = 0L;
+    }
+
     // Background thumbnail generator
-    private static final java.util.concurrent.ExecutorService thumbExecutor = 
+    private static final java.util.concurrent.ExecutorService thumbExecutor =
         java.util.concurrent.Executors.newSingleThreadExecutor();
     private static final Set<String> pendingThumbs = java.util.Collections.synchronizedSet(new HashSet<>());
     
@@ -590,6 +602,14 @@ public class RecordingsApiHandler {
      * Get storage statistics.
      */
     private static void getStorageStats(OutputStream out) throws Exception {
+        // Serve from cache if still fresh — avoids 5+ directory scans per request
+        long now = System.currentTimeMillis();
+        String cached = statsCache;
+        if (cached != null && (now - statsCacheTime) < STATS_CACHE_TTL_MS) {
+            HttpResponse.sendJson(out, cached);
+            return;
+        }
+
         StorageManager storage = StorageManager.getInstance();
         
         long normalSize = 0, normalCount = 0;
@@ -727,8 +747,13 @@ public class RecordingsApiHandler {
         // Storage paths
         response.put("recordingsPath", getRecordingsDir());
         response.put("surveillancePath", getSentryDir());
-        
-        HttpResponse.sendJson(out, response.toString());
+
+        String responseJson = response.toString();
+        // Store in cache before sending
+        statsCache = responseJson;
+        statsCacheTime = System.currentTimeMillis();
+
+        HttpResponse.sendJson(out, responseJson);
     }
     
     /**
@@ -812,7 +837,11 @@ public class RecordingsApiHandler {
         }
         
         boolean deleted = file.delete();
-        
+
+        if (deleted) {
+            invalidateStatsCache(); // Force next stats request to rescan
+        }
+
         // SOTA: Also delete JSON sidecar if it exists
         if (deleted) {
             String jsonName = filename.replace(".mp4", ".json");

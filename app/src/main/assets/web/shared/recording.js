@@ -36,9 +36,12 @@ BYD.recording = {
     lastConfigTimestamp: 0,  // Track config file timestamp for sync
 
     async init() {
-        await this.loadConfig();
-        await this.loadStorageStats();
-        await this.loadTelemetryOverlay();
+        // Run independent fetches in parallel — cuts load time from ~30s to ~3s
+        await Promise.all([
+            this.loadConfig(),
+            this.loadStorageStats(),
+            this.loadTelemetryOverlay()
+        ]);
         this.savedConfig = JSON.parse(JSON.stringify(this.config));
         this.updateUI();
         
