@@ -217,7 +217,6 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:layout_gravity="bottom"
-        android:layout_marginBottom="40dp"
         android:background="#CC000000"
         android:paddingStart="8dp"
         android:paddingEnd="8dp"
@@ -318,17 +317,5 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!--
-        Telemetry HUD bar: always visible when sidecar has telemetry data.
-        Shows speed, gear, pedals, and turn signals. Not auto-hiding.
-        Sits at the very bottom; bottomControls has 40dp marginBottom so it
-        renders above this bar when both are visible.
-    -->
-    <com.overdrive.app.ui.view.TelemetryBarView
-        android:id="@+id/telemetryBar"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:layout_gravity="bottom"
-        android:visibility="gone" />
 
 </FrameLayout>

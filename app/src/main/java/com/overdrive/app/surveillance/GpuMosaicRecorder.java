@@ -284,17 +284,16 @@ public class GpuMosaicRecorder {
             GLES20.glGenTextures(1, texIds, 0);
             overlayTextureId = texIds[0];
             
-            // Overlay quad: full-width top strip (x: -1.0 → +1.0), top 160px of 1920px frame.
-            // The 1280×80 bitmap stretches 2× horizontally to 2560px; the pill (barL=200,
-            // barR=1080) appears visually centred with transparent margins either side.
-            // In MultiCameraGLView playback this spans both top quadrants — intentional.
-            // The burn-in is the evidence copy for insurance/export. The player shows the
-            // same data cleanly via TelemetryBarView without any split artefact.
+            // Overlay quad: top of the FRONT camera quadrant only (x: -1.0 → 0.0).
+            // In 3-cam mode (Atto 3 default, uApaMode=2.0) the top-left quadrant is FRONT.
+            // The 1280×80 bitmap maps 1:1 horizontally (no stretch) so the centred pill
+            // (barL=200, barR=1080) is visually centred within the FRONT view. Remaining
+            // in one quadrant keeps it visible in the small thumbnail column of the player.
             float[] overlayVertexCoords = {
                 -1.0f,  0.8333f,
-                 1.0f,  0.8333f,
+                 0.0f,  0.8333f,
                 -1.0f,  1.0f,
-                 1.0f,  1.0f
+                 0.0f,  1.0f
             };
             // Tex coords flipped Y for correct orientation
             float[] overlayTexCoords = {
