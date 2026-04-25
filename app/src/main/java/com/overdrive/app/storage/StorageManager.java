@@ -815,6 +815,12 @@ public class StorageManager {
             storage.put("recordingsStorageType", recordingsStorageType.name());
             storage.put("surveillanceStorageType", surveillanceStorageType.name());
             storage.put("tripsStorageType", tripsStorageType.name());
+            // Persist the resolved SD card path so the app UID can read it directly.
+            // App UID cannot canRead()/canWrite() on SD card volume roots but can access
+            // subdirectories once the path is known; daemon (shell UID) can discover it.
+            if (sdCardPath != null && !sdCardPath.isEmpty()) {
+                storage.put("sdCardPath", sdCardPath);
+            }
             config.put("storage", storage);
             config.put("lastModified", System.currentTimeMillis());
             

@@ -72,18 +72,25 @@ object RecordingScanner {
                 if (storage != null) {
                     recordingsStorageType = storage.optString("recordingsStorageType", "INTERNAL")
                     surveillanceStorageType = storage.optString("surveillanceStorageType", "INTERNAL")
+                    // Read daemon-resolved SD card path directly; app UID cannot re-discover
+                    // it because canRead()/canWrite() on /storage/<UUID>/ returns false for
+                    // normal UIDs even though subdirectory access works fine.
+                    val savedPath = storage.optString("sdCardPath", "")
+                    if (savedPath.isNotEmpty()) {
+                        sdCardPath = savedPath
+                    }
                 }
-                
-                Log.d(TAG, "Loaded config: recordings=$recordingsStorageType, surveillance=$surveillanceStorageType")
+
+                Log.d(TAG, "Loaded config: recordings=$recordingsStorageType, surveillance=$surveillanceStorageType, sdCard=$sdCardPath")
             }
         } catch (e: Exception) {
             Log.w(TAG, "Could not load storage config: ${e.message}")
         }
-        
-        // Discover SD card if needed
-        if (recordingsStorageType == "SD_CARD" || surveillanceStorageType == "SD_CARD") {
+
+        // Fall back to local discovery only if daemon hasn't persisted the path yet
+        if (sdCardPath == null && (recordingsStorageType == "SD_CARD" || surveillanceStorageType == "SD_CARD")) {
             sdCardPath = discoverSdCardPath()
-            Log.d(TAG, "SD card path: $sdCardPath")
+            Log.d(TAG, "SD card path (discovered): $sdCardPath")
         }
         
         // Set recordings directory
