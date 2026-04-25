@@ -45,7 +45,7 @@ data class RecordingFile(
         get() = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date(timestamp))
     
     val formattedTime: String
-        get() = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(timestamp))
+        get() = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
     
     val formattedDuration: String
         get() {

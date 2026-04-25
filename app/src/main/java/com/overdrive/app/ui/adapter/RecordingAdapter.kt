@@ -51,9 +51,9 @@ class RecordingAdapter(
         fun bind(recording: RecordingFile) {
             // Type badge label + colour
             val (label, colorRes) = when (recording.type) {
-                RecordingFile.RecordingType.SENTRY    -> "SENTRY" to R.color.brand_primary
-                RecordingFile.RecordingType.PROXIMITY -> "PROX"   to R.color.status_warning
-                RecordingFile.RecordingType.NORMAL    -> "REC"    to R.color.accent_purple
+                RecordingFile.RecordingType.SENTRY    -> "SENTRY"    to R.color.brand_primary
+                RecordingFile.RecordingType.PROXIMITY -> "PROXIMITY" to R.color.status_warning
+                RecordingFile.RecordingType.NORMAL    -> "NORMAL"    to R.color.accent_purple
             }
             tvTypeBadge.text = label
             tvTypeBadge.backgroundTintList = ColorStateList.valueOf(
