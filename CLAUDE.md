@@ -154,21 +154,51 @@ Playback of individual camera angles is done at the UI layer: one `MediaPlayer` 
 
 ---
 
-## ⚠️ Dual UI — Critical to Understand
+## ⚠️ Two Separate UIs — Read This Before Touching Any UI File
 
-This app has **two completely separate UIs** that must both be considered for any UI change:
+### Current focus: Android on-screen UI only
+The remote web UI (browser access) is NOT the current work priority. Do not edit `assets/web/` files unless explicitly asked. Remote Web UI changes require the physical car with daemon running — they cannot be verified in the emulator.
 
-### 1. Android App UI (on-screen)
-- What displays on the car's head unit screen
-- Kotlin fragments + HTML/JS files loaded into `WebViewFragment`
-- Test in Android emulator
+---
 
-### 2. Remote Web UI (browser-based)
-- Accessed via browser when connecting remotely (LAN, Cloudflare tunnel, Zrok)
-- Served by `HttpServer.java` — separate HTML/JS assets from the Android UI
-- Cannot be tested in emulator — requires the car running with a daemon active
+### Android On-Screen UI — Screen-by-File Mapping
 
-**Rule: Before making any UI change, identify which UI(s) it affects. If a feature exists in both, both must be updated. Never assume changing one side also changes the other — they are separate files.**
+Before editing anything, look up the screen here. Do not assume. Do not guess.
+
+| Screen | Implementation | Files to edit |
+|---|---|---|
+| **Events / Recordings** | **NATIVE Kotlin** — NOT HTML | `RecordingLibraryFragment.kt`, `RecordingAdapter.kt`, `item_recording.xml`, `fragment_recording_library.xml`, `RecordingFile.kt` |
+| **Video Player** | **NATIVE Kotlin** — NOT HTML | `MultiCameraPlayerFragment.kt`, `fragment_multi_camera_player.xml`, `MultiCameraGLView.kt` |
+| Dashboard | WebView → `local/index.html` | `assets/web/local/index.html`, `assets/web/shared/*.js` |
+| Recording Settings | WebView → `local/recording.html` | `assets/web/local/recording.html`, `assets/web/shared/recording.js` |
+| Surveillance Settings | WebView → `local/surveillance.html` | `assets/web/local/surveillance.html`, `assets/web/shared/surveillance.js` |
+| Performance | WebView → `local/performance.html` | `assets/web/local/performance.html` |
+| ABRP | WebView → `local/abrp.html` | `assets/web/local/abrp.html` |
+| Trips | WebView → `local/trips.html` | `assets/web/local/trips.html` |
+
+**The events page is native Kotlin. `assets/web/local/events.html` and `assets/web/shared/events.js` are for the remote browser UI only. Editing those files has zero effect on what the user sees in the Android app.**
+
+#### Why the events page is native
+`WebViewFragment.shouldOverrideUrlLoading()` intercepts any navigation to `/events` or `/events.html` and redirects to `RecordingLibraryFragment` via `R.id.eventsFragment`. The HTML page is never loaded on-screen. Check `WebViewFragment.kt` lines 323–343 if this ever needs revisiting.
+
+#### Mandatory pre-coding check
+Before editing any file for an on-screen UI task:
+1. Identify the screen from the table above
+2. If it's NATIVE: edit the Kotlin/XML files only
+3. If it's WebView: confirm the page isn't intercepted in `WebViewFragment.shouldOverrideUrlLoading()`
+4. Never edit `assets/web/` files for on-screen Android UI work unless the screen is confirmed WebView
+
+---
+
+### Remote Web UI (browser-based) — NOT current priority
+
+- Accessed via browser on LAN / Cloudflare tunnel / Zrok
+- Served by `HttpServer.java` — extracts `assets/web/` to `/data/local/tmp/web/` at daemon start
+- `assets/web/shared/events.js`, `assets/web/local/events.html` are the REMOTE events page
+- Cannot be verified in emulator — requires physical car with daemon running
+- When remote UI changes are needed: update both the native layer AND `assets/web/` files separately
+
+**Rule: A change to `assets/web/` does NOT affect the Android on-screen UI for the events or video player screens. A change to Kotlin/XML does NOT affect the remote browser UI. They are independent.**
 
 ---
 
@@ -230,31 +260,36 @@ Build APK: Android Studio → Build → Build APK (or Generate Signed APK for re
 
 ## Current Task
 
-## Current Task
+All work is on branch `feature/events-player-improvements`.
 
-### 1. SD Card Recording — Drive Recordings Missing from App
-Sentry events appear correctly, but drive recordings saved to SD card don't show in the Events page — they exist on disk (visible via file explorer) but the app doesn't list them. Requires investigation into how the Events page queries/filters recordings by storage location and recording type. A reset sometimes resolves it, which suggests a path resolution or scan timing issue.
+### ✅ 1. SD Card Recording — Drive Recordings Missing from App
+Fixed. Root causes:
+- `StorageManager` constructor ran `discoverSdCard()` before `loadConfig()` — created Overdrive folders on any USB drive regardless of storage setting. Fixed by reordering constructor.
+- SD card path was `/storage/UUID/Overdrive/` which app UID can't access via FUSE. Changed to `Android/data/com.overdrive.app/files/Overdrive/` (app owns this path).
+- `RecordingScanner` now uses `context.getExternalFilesDirs(null)` to locate SD card correctly.
 
-### 2. Event Thumbnails — Layout & Overlay Redesign
-Current thumbnails are too wide/stretched relative to the 2×2 mosaic source aspect ratio. Goals:
-- Move to 3-per-row grid with more square aspect ratio
-- Metadata overlay (date, event type) is covering the thumbnail content — either move below the image or redesign as a minimal non-covering treatment so the trigger moment is actually visible
+### ✅ 2. Event Thumbnails — Layout & Overlay Redesign
+Fixed. Changes were to **native Kotlin/XML** (not events.html — see screen mapping above):
+- `GridLayoutManager` changed from 2 → 3 columns in `RecordingLibraryFragment.kt`
+- `item_recording.xml` rewritten: ConstraintLayout with `dimensionRatio="H,4:3"` for thumbnail (matches 2560×1920 mosaic), `scaleType="fitCenter"` (no cropping), dark scrim removed
+- Time-only footer below thumbnail, file size removed
+- Duration read from `MediaMetadataRetriever` in async load — no more "--:--" placeholder
+- `formattedTime` changed to `"h:mm a"` (12-hour, no seconds) in `RecordingFile.kt`
+- Filter tabs: "Rec" → "Normal", "Prox" → "Proximity"
+- Badge labels: "REC" → "NORMAL", "PROX" → "PROXIMITY"
+
+### ✅ 4. Event Filter Labels — Use Full Words
+Done as part of Task 2 above.
 
 ### 3. Video Player — Detection Marker Audit
 Detection markers in the scrubber/timeline appear too small/short. Audit whether:
 - Detection segments are being read and mapped correctly to video duration
 - Markers are proportionally sized to their actual duration
 - Colour-coding by event type is implemented (and icons if supported)
-
-### 4. Event Filter Labels — Use Full Words
-- "Prox" → "Proximity"
-- Audit all filter tab and section labels for abbreviations; use full words throughout (Android UI only — remote Web UI is separate)
+- Scope: `MultiCameraPlayerFragment.kt`, `EventTimelineView.kt`, `fragment_multi_camera_player.xml`
 
 ### 5. Drive Mode Overlay — Multi-Camera Player Compatibility
-The optional HUD overlay (speed, GPS, etc.) rendered during recording may conflict with the new `MultiCameraPlayerFragment` layout. Investigate:
-- Whether the overlay is burned into the video file or rendered live at playback
-- If live: whether it renders correctly over the 2×2 quad layout or needs repositioning
-- Consider making the overlay more minimal — it's ambient info, not primary content
+The HUD overlay is **burned into the video file** at record time by `GpuMosaicRecorder`. Position was changed to top-left quadrant (FRONT camera area) only, using NDC coords `x=-1..0, y=0.833..1.0`. On-car test required to verify positioning. No live-rendering conflict exists.
 
 ---
 
