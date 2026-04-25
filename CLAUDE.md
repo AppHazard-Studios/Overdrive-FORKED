@@ -230,7 +230,31 @@ Build APK: Android Studio → Build → Build APK (or Generate Signed APK for re
 
 ## Current Task
 
-None — all planned features from the last session are implemented and on `main`. See Phase 2 below for what's next.
+## Current Task
+
+### 1. SD Card Recording — Drive Recordings Missing from App
+Sentry events appear correctly, but drive recordings saved to SD card don't show in the Events page — they exist on disk (visible via file explorer) but the app doesn't list them. Requires investigation into how the Events page queries/filters recordings by storage location and recording type. A reset sometimes resolves it, which suggests a path resolution or scan timing issue.
+
+### 2. Event Thumbnails — Layout & Overlay Redesign
+Current thumbnails are too wide/stretched relative to the 2×2 mosaic source aspect ratio. Goals:
+- Move to 3-per-row grid with more square aspect ratio
+- Metadata overlay (date, event type) is covering the thumbnail content — either move below the image or redesign as a minimal non-covering treatment so the trigger moment is actually visible
+
+### 3. Video Player — Detection Marker Audit
+Detection markers in the scrubber/timeline appear too small/short. Audit whether:
+- Detection segments are being read and mapped correctly to video duration
+- Markers are proportionally sized to their actual duration
+- Colour-coding by event type is implemented (and icons if supported)
+
+### 4. Event Filter Labels — Use Full Words
+- "Prox" → "Proximity"
+- Audit all filter tab and section labels for abbreviations; use full words throughout (Android UI only — remote Web UI is separate)
+
+### 5. Drive Mode Overlay — Multi-Camera Player Compatibility
+The optional HUD overlay (speed, GPS, etc.) rendered during recording may conflict with the new `MultiCameraPlayerFragment` layout. Investigate:
+- Whether the overlay is burned into the video file or rendered live at playback
+- If live: whether it renders correctly over the 2×2 quad layout or needs repositioning
+- Consider making the overlay more minimal — it's ambient info, not primary content
 
 ---
 
