@@ -4,10 +4,10 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="6dp"
-    android:layout_marginVertical="6dp"
+    android:layout_marginHorizontal="4dp"
+    android:layout_marginVertical="4dp"
     app:cardBackgroundColor="@color/bg_surface"
-    app:cardCornerRadius="12dp"
+    app:cardCornerRadius="8dp"
     app:strokeColor="@color/card_border"
     app:strokeWidth="1dp"
     app:cardElevation="0dp"
@@ -18,118 +18,110 @@
         android:layout_height="wrap_content"
         android:orientation="vertical">
 
-        <!-- Thumbnail -->
-        <FrameLayout
+        <!--
+            Thumbnail container: 4:3 aspect ratio matches the 2560x1920 mosaic video.
+            fitCenter shows the full frame without any cropping.
+            No dark scrim — the frame content must be clearly visible.
+        -->
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="110dp">
+            android:layout_height="wrap_content">
 
             <ImageView
                 android:id="@+id/ivThumbnail"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:scaleType="centerCrop"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintDimensionRatio="H,4:3"
+                android:scaleType="fitCenter"
                 android:background="@color/bg_elevated"
                 android:contentDescription="Video thumbnail" />
 
-            <!-- Subtle scrim so badges are legible -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="#44000000" />
-
-            <!-- Recording type badge — top-left -->
+            <!-- Recording type badge — top-left corner of thumbnail -->
             <TextView
                 android:id="@+id/tvTypeBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_gravity="top|start"
-                android:layout_margin="8dp"
-                android:paddingHorizontal="8dp"
-                android:paddingVertical="3dp"
-                android:textSize="10sp"
+                app:layout_constraintTop_toTopOf="@id/ivThumbnail"
+                app:layout_constraintStart_toStartOf="parent"
+                android:layout_margin="6dp"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:textSize="9sp"
                 android:fontFamily="sans-serif-medium"
                 android:textColor="@color/bg_base"
                 android:background="@drawable/bg_pill"
                 tools:text="SENTRY" />
 
-            <!-- Delete button — top-right, over thumbnail -->
+            <!-- Delete button — top-right corner of thumbnail -->
             <ImageButton
                 android:id="@+id/btnDelete"
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_gravity="top|end"
-                android:layout_margin="4dp"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                app:layout_constraintTop_toTopOf="@id/ivThumbnail"
+                app:layout_constraintEnd_toEndOf="parent"
+                android:layout_margin="2dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_delete"
                 android:contentDescription="Delete"
                 app:tint="@color/status_danger"
-                android:alpha="0.85" />
+                android:alpha="0.9" />
 
-        </FrameLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!-- Info area -->
+        <!-- Info row: time (primary) + duration (secondary) -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="10dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="10dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="8dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp">
 
-            <!-- Time of recording -->
+            <!-- Time of recording — 12-hour format, no seconds -->
             <TextView
                 android:id="@+id/tvRecordingTime"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:textColor="@color/text_primary"
-                android:textSize="14sp"
+                android:textSize="12sp"
                 android:fontFamily="sans-serif-medium"
-                tools:text="14:32:56" />
+                tools:text="4:32 PM" />
 
-            <!-- Duration + size row -->
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="3dp"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/tvDuration"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    tools:text="5:30" />
-
-                <View
-                    android:layout_width="3dp"
-                    android:layout_height="3dp"
-                    android:layout_marginHorizontal="6dp"
-                    android:background="@drawable/recording_indicator_dot" />
-
-                <TextView
-                    android:id="@+id/tvSize"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="11sp"
-                    tools:text="125 MB" />
-
-            </LinearLayout>
-
-            <!-- Detection summary (hidden when no JSON sidecar or no events) -->
+            <!-- Duration — right-aligned, secondary colour -->
             <TextView
-                android:id="@+id/tvEvents"
+                android:id="@+id/tvDuration"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
-                android:textColor="@color/brand_primary"
-                android:textSize="11sp"
-                android:visibility="gone"
-                tools:text="1 person  ·  2 cars" />
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:fontFamily="monospace"
+                tools:text="2:30" />
 
         </LinearLayout>
+
+        <!-- Detection summary — hidden until JSON sidecar confirms events exist -->
+        <TextView
+            android:id="@+id/tvEvents"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_marginBottom="6dp"
+            android:textColor="@color/brand_primary"
+            android:textSize="10sp"
+            android:visibility="gone"
+            tools:text="1 person  ·  2 cars" />
+
+        <!-- File size: hidden — kept only so the adapter doesn't need changing -->
+        <TextView
+            android:id="@+id/tvSize"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
 
     </LinearLayout>
 

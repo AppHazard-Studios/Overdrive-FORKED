@@ -178,7 +178,7 @@ class RecordingLibraryFragment : Fragment() {
             onDelete = { confirmDelete(it) }
         )
         recyclerRecordings.apply {
-            layoutManager = GridLayoutManager(context, 2)
+            layoutManager = GridLayoutManager(context, 3)
             adapter = recordingAdapter
         }
     }

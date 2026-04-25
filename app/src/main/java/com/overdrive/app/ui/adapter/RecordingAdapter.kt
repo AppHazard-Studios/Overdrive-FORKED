@@ -28,6 +28,7 @@ class RecordingAdapter(
 
     private val thumbnailCache    = mutableMapOf<String, Bitmap?>()
     private val eventSummaryCache = mutableMapOf<String, String>()
+    private val durationCache     = mutableMapOf<String, String>()  // formatted duration, empty = not yet loaded
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecordingViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -51,9 +52,9 @@ class RecordingAdapter(
         fun bind(recording: RecordingFile) {
             // Type badge label + colour
             val (label, colorRes) = when (recording.type) {
-                RecordingFile.RecordingType.SENTRY    -> "SENTRY" to R.color.brand_primary
-                RecordingFile.RecordingType.PROXIMITY -> "PROX"   to R.color.status_warning
-                RecordingFile.RecordingType.NORMAL    -> "REC"    to R.color.accent_purple
+                RecordingFile.RecordingType.SENTRY    -> "SENTRY"    to R.color.brand_primary
+                RecordingFile.RecordingType.PROXIMITY -> "PROXIMITY" to R.color.status_warning
+                RecordingFile.RecordingType.NORMAL    -> "NORMAL"    to R.color.accent_purple
             }
             tvTypeBadge.text = label
             tvTypeBadge.backgroundTintList = ColorStateList.valueOf(
@@ -61,11 +62,19 @@ class RecordingAdapter(
             )
 
             tvRecordingTime.text = recording.formattedTime
-            tvDuration.text = if (recording.durationMs > 0) recording.formattedDuration else "--:--"
             tvSize.text = recording.formattedSize
 
             // Show cached event summary immediately; load async if not cached yet
             applyEventSummary(eventSummaryCache[recording.path])
+
+            // Show cached duration; hide while not yet loaded (avoids "--:--" placeholder)
+            val cachedDuration = durationCache[recording.path]
+            if (cachedDuration != null) {
+                tvDuration.text = cachedDuration
+                tvDuration.visibility = if (cachedDuration.isNotEmpty()) View.VISIBLE else View.GONE
+            } else {
+                tvDuration.visibility = View.GONE
+            }
 
             // Show cached thumbnail immediately; kick off async load if not cached
             if (thumbnailCache.containsKey(recording.path)) {
@@ -126,26 +135,46 @@ class RecordingAdapter(
                     } catch (_: Exception) { }
                 }
 
-                // 2. Extract thumbnail at the first event's timestamp
-                val thumbnail = try {
+                // 2. Extract thumbnail at the first event's timestamp; also read actual duration
+                var thumbnail: android.graphics.Bitmap? = null
+                var durationFormatted = ""
+                try {
                     val retriever = MediaMetadataRetriever()
                     retriever.setDataSource(recording.path)
-                    val frame = retriever.getFrameAtTime(
+
+                    // Read duration from container metadata (no extra I/O cost)
+                    val durationMs = retriever.extractMetadata(
+                        MediaMetadataRetriever.METADATA_KEY_DURATION
+                    )?.toLongOrNull() ?: 0L
+                    if (durationMs > 0) {
+                        val s = durationMs / 1000
+                        durationFormatted = if (s >= 3600) {
+                            "%d:%02d:%02d".format(s / 3600, (s % 3600) / 60, s % 60)
+                        } else {
+                            "%d:%02d".format(s / 60, s % 60)
+                        }
+                    }
+
+                    thumbnail = retriever.getFrameAtTime(
                         firstEventUs,
                         MediaMetadataRetriever.OPTION_CLOSEST_SYNC
                     )
                     retriever.release()
-                    frame
-                } catch (_: Exception) { null }
+                } catch (_: Exception) { }
 
                 thumbnailCache[recording.path]    = thumbnail
                 eventSummaryCache[recording.path] = summary
+                durationCache[recording.path]     = durationFormatted
 
                 withContext(Dispatchers.Main) {
                     val pos = bindingAdapterPosition
                     if (pos != RecyclerView.NO_POSITION && getItem(pos).path == recording.path) {
                         if (thumbnail != null) ivThumbnail.setImageBitmap(thumbnail)
                         applyEventSummary(summary)
+                        if (durationFormatted.isNotEmpty()) {
+                            tvDuration.text = durationFormatted
+                            tvDuration.visibility = View.VISIBLE
+                        }
                     }
                 }
             }
@@ -155,6 +184,7 @@ class RecordingAdapter(
     fun clearCache() {
         thumbnailCache.clear()
         eventSummaryCache.clear()
+        durationCache.clear()
     }
 
     private class RecordingDiffCallback : DiffUtil.ItemCallback<RecordingFile>() {
