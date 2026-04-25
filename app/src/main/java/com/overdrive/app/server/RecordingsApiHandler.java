@@ -183,7 +183,8 @@ public class RecordingsApiHandler {
             cacheDir.mkdirs();
         }
         
-        String thumbName = filename.replace(".mp4", ".jpg");
+        // "_43" suffix distinguishes from old 16:9 cached thumbs; forces regeneration after aspect fix
+        String thumbName = filename.replace(".mp4", "_43.jpg");
         File thumbFile = new File(cacheDir, thumbName);
         
         // If cached thumbnail exists and is valid, serve it immediately
@@ -233,7 +234,7 @@ public class RecordingsApiHandler {
     
     /**
      * Generate a thumbnail from a video file using MediaMetadataRetriever.
-     * Extracts frame at 1 second mark, scales to 160x90 for efficiency.
+     * Extracts frame at 1 second mark, scales to 160x120 (4:3) to match mosaic video aspect ratio.
      */
     private static byte[] generateThumbnail(File videoFile) {
         MediaMetadataRetriever retriever = new MediaMetadataRetriever();
@@ -251,9 +252,9 @@ public class RecordingsApiHandler {
                 return null;
             }
             
-            // Scale down to thumbnail size (160x90 for 16:9 aspect)
+            // Scale down to thumbnail size (160x120 for 4:3 aspect — matches the 2560x1920 mosaic)
             int targetWidth = 160;
-            int targetHeight = 90;
+            int targetHeight = 120;
             Bitmap scaled = Bitmap.createScaledBitmap(frame, targetWidth, targetHeight, true);
             
             // Compress to JPEG
@@ -850,12 +851,9 @@ public class RecordingsApiHandler {
                 jsonFile.delete();
             }
             
-            // Delete cached thumbnail
-            String thumbName = filename.replace(".mp4", ".jpg");
-            File thumbFile = new File(getThumbnailCacheDir(), thumbName);
-            if (thumbFile.exists()) {
-                thumbFile.delete();
-            }
+            // Delete cached thumbnail (both old 16:9 and current 4:3 versioned filename)
+            new File(getThumbnailCacheDir(), filename.replace(".mp4", ".jpg")).delete();
+            new File(getThumbnailCacheDir(), filename.replace(".mp4", "_43.jpg")).delete();
         }
         
         JSONObject response = new JSONObject();
