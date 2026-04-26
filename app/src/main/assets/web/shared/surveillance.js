@@ -1349,6 +1349,13 @@ BYD.surveillance = {
         // not the user's preference. Surveillance can be enabled (preference=true) but not
         // active (gpuSurveillance=false) when ACC is ON. The toggle reflects the preference,
         // which is loaded from the config API, not from status.
+
+        // pipelineV2Initialized is explicitly false only when the daemon is running but the
+        // JNI pipeline failed to init. Absent/undefined means daemon not yet running — no warning.
+        const pipelineWarning = document.getElementById('survPipelineWarning');
+        if (pipelineWarning) {
+            pipelineWarning.style.display = (status.pipelineV2Initialized === false) ? 'block' : 'none';
+        }
     }
 };
 

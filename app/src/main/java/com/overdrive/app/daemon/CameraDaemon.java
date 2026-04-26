@@ -1394,6 +1394,7 @@ public class CameraDaemon {
             status.put("enabled", surveillanceEnabled);
             status.put("active", gpuPipeline.isRunning());
             status.put("recording", gpuPipeline.getSentry() != null && gpuPipeline.getSentry().isRecording());
+            status.put("pipelineV2Initialized", gpuPipeline.getSentry() != null && gpuPipeline.getSentry().isPipelineV2Initialized());
             status.put("frameCount", gpuPipeline.getCamera() != null ? gpuPipeline.getCamera().getFrameCount() : 0);
             status.put("encoderType", "gpu-zero-copy");
             
