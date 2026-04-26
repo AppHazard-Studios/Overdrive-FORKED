@@ -284,14 +284,22 @@ public class GpuMosaicRecorder {
             GLES20.glGenTextures(1, texIds, 0);
             overlayTextureId = texIds[0];
             
-            // Overlay quad: top of the FRONT camera quadrant only (x: -1.0 → 0.0).
-            // In 3-cam mode (Atto 3 default, uApaMode=2.0) the top-left quadrant is FRONT.
-            // The 1280×80 bitmap maps 1:1 horizontally (no stretch) so the centred pill
-            // (barL=200, barR=1080) is visually centred within the FRONT view. Remaining
-            // in one quadrant keeps it visible in the small thumbnail column of the player.
+            // Overlay quad: top-strip of the FRONT camera quadrant (x: -1.0 → 0.0).
+            //
+            // Encoder Y-flip note: the EGL/MediaCodec surface writes GL viewport bottom
+            // (NDC y=-1) as video row 0 (file-top) and GL top (NDC y=+1) as video row 1919
+            // (file-bottom).  The 3-cam shader maps FRONT to NDC y > 0 (vTexCoord.y < 0.5),
+            // so FRONT encodes to the bottom half of the video file (rows 960-1919).
+            // Physical verification in MultiCameraGLView confirms: Top-left=Rear,
+            // Bottom-left=Front (the player's v0/v1 swap corrects BYD's vertical inversion).
+            //
+            // NDC y: 0.9167 → 1.0 maps to exactly 80 video-pixels tall:
+            //   0.0833 NDC × 960 px/NDC-unit = 80 px (1:1 match with the 1280×80 bitmap).
+            // This keeps the bar within the FRONT quadrant, 880 px away from the REAR
+            // boundary (NDC y=0), and appears at the top of the FRONT view in the player.
             float[] overlayVertexCoords = {
-                -1.0f,  0.8333f,
-                 0.0f,  0.8333f,
+                -1.0f,  0.9167f,
+                 0.0f,  0.9167f,
                 -1.0f,  1.0f,
                  0.0f,  1.0f
             };
