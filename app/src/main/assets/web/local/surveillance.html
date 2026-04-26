@@ -282,6 +282,12 @@
                                 <a href="events.html?filter=sentry" class="value link-value" id="eventsToday">0 →</a>
                             </div>
                         </div>
+                        <div id="survPipelineWarning" style="display:none; margin-top:10px; padding:10px 12px; border-radius:var(--radius-sm); background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3);">
+                            <div class="sd-status-row">
+                                <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--danger);box-shadow:0 0 6px var(--danger);"></span>
+                                <span style="color:var(--danger);font-size:0.85em;font-weight:500;">Motion detection unavailable — pipeline failed to initialise. Check daemon logs.</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

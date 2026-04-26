@@ -51,10 +51,12 @@ class MultiCameraGLView @JvmOverloads constructor(
     private var frameAvailable = false
     private val frameLock = Any()
 
-    private var locPosition = 0
-    private var locTexCoord = 0
+    private var locPosition  = 0
+    private var locTexCoord  = 0
     private var locTexMatrix = 0
-    private var locSampler = 0
+    private var locSampler   = 0
+    private var locIsPrimary = -1
+    private var locTexelStep = -1
 
     @Volatile var primaryCamera: CameraView = CameraView.FRONT
         private set
@@ -97,10 +99,16 @@ class MultiCameraGLView @JvmOverloads constructor(
         post { onSurfaceReady?.invoke(Surface(st)) }
 
         program = buildProgram(VERT_SRC, FRAG_SRC)
-        locPosition = GLES20.glGetAttribLocation(program, "aPosition")
-        locTexCoord = GLES20.glGetAttribLocation(program, "aTexCoord")
+        locPosition  = GLES20.glGetAttribLocation(program, "aPosition")
+        locTexCoord  = GLES20.glGetAttribLocation(program, "aTexCoord")
         locTexMatrix = GLES20.glGetUniformLocation(program, "uTexMatrix")
         locSampler   = GLES20.glGetUniformLocation(program, "uSampler")
+        locIsPrimary = GLES20.glGetUniformLocation(program, "uIsPrimary")
+        locTexelStep = GLES20.glGetUniformLocation(program, "uTexelStep")
+
+        // Texel size is constant for the 2560×1920 mosaic texture — set once here.
+        GLES20.glUseProgram(program)
+        if (locTexelStep >= 0) GLES20.glUniform2f(locTexelStep, 1f / 2560f, 1f / 1920f)
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -127,8 +135,8 @@ class MultiCameraGLView @JvmOverloads constructor(
 
         val primary = primaryCamera
 
-        // Large view: left 74% of screen (NDC x: -1 → 0.47), full height
-        drawQuad(-1f, -1f, 0.47f, 1f, primary)
+        // Large view: left 74% of screen (NDC x: -1 → 0.47), full height — CAS sharpening ON
+        drawQuad(-1f, -1f, 0.47f, 1f, primary, isPrimary = true)
 
         // Right column: all four cameras in equal rows (NDC x: 0.48 → 1).
         // Starts at 0.48 to match the overlay layout boundary (74:26 weight split),
@@ -138,13 +146,14 @@ class MultiCameraGLView @JvmOverloads constructor(
         CameraView.values().forEachIndexed { i, cam ->
             val y1 = (1f - i * rowH - gap).coerceAtMost(1f)
             val y0 = (y1 - rowH + gap * 2f).coerceAtLeast(-1f)
-            drawQuad(0.48f, y0, 1f, y1, cam)
+            drawQuad(0.48f, y0, 1f, y1, cam, isPrimary = false)
         }
     }
 
     // endregion
 
-    private fun drawQuad(x0: Float, y0: Float, x1: Float, y1: Float, cam: CameraView) {
+    private fun drawQuad(x0: Float, y0: Float, x1: Float, y1: Float, cam: CameraView, isPrimary: Boolean = false) {
+        if (locIsPrimary >= 0) GLES20.glUniform1f(locIsPrimary, if (isPrimary) 1f else 0f)
         // Vertices: (x, y, u, v) — two triangles via TRIANGLE_STRIP
         // y1=top, y0=bottom in NDC
         val verts = floatArrayOf(
@@ -184,13 +193,33 @@ void main() {
     vTexCoord = (uTexMatrix * vec4(aTexCoord, 0.0, 1.0)).xy;
 }"""
 
+        // CAS (Contrast Adaptive Sharpening) fragment shader.
+        // Applied only to the large primary view (uIsPrimary == 1.0); thumbnails use plain lookup.
+        // 5 texture samples for primary (center + NSEW), 1 sample for thumbnails.
+        // uTexelStep is set once at program creation to (1/2560, 1/1920).
         private const val FRAG_SRC = """
 #extension GL_OES_EGL_image_external : require
 precision mediump float;
 uniform samplerExternalOES uSampler;
+uniform vec2 uTexelStep;
+uniform float uIsPrimary;
 varying vec2 vTexCoord;
 void main() {
-    gl_FragColor = texture2D(uSampler, vTexCoord);
+    vec4 col = texture2D(uSampler, vTexCoord);
+    if (uIsPrimary > 0.5) {
+        vec3 c = col.rgb;
+        vec3 n = texture2D(uSampler, vTexCoord + vec2(0.0,  uTexelStep.y)).rgb;
+        vec3 s = texture2D(uSampler, vTexCoord - vec2(0.0,  uTexelStep.y)).rgb;
+        vec3 e = texture2D(uSampler, vTexCoord + vec2( uTexelStep.x, 0.0)).rgb;
+        vec3 w = texture2D(uSampler, vTexCoord - vec2( uTexelStep.x, 0.0)).rgb;
+        vec3 luma = vec3(0.213, 0.715, 0.072);
+        float mnL = min(min(dot(n, luma), dot(s, luma)), min(dot(e, luma), dot(w, luma)));
+        float mxL = max(max(dot(n, luma), dot(s, luma)), max(dot(e, luma), dot(w, luma)));
+        float amp = sqrt(clamp(min(mnL, 1.0 - mxL) / max(mxL, 0.0001), 0.0, 1.0));
+        float wgt = amp * (-0.125);
+        col.rgb = clamp((c + wgt * (n + s + e + w)) / (1.0 + 4.0 * wgt), 0.0, 1.0);
+    }
+    gl_FragColor = col;
 }"""
 
         private fun buildProgram(vertSrc: String, fragSrc: String): Int {

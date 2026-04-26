@@ -128,6 +128,7 @@ public class SurveillanceEngineGpu {
     // V2 Pipeline: Per-quadrant 6-stage motion detection
     private MotionPipelineV2 pipelineV2 = null;
     private MotionPipelineV2.Config pipelineV2Config = null;
+    private boolean pipelineV2Initialized = false;
     // Staggered YOLO: queue of quadrants to run AI on
     private final java.util.Queue<Integer> aiQuadrantQueue = new java.util.LinkedList<>();
     
@@ -277,10 +278,26 @@ public class SurveillanceEngineGpu {
         try {
             pipelineV2 = new MotionPipelineV2();
             if (pipelineV2.init()) {
+                // Load persisted user config; fall back to outdoor defaults if nothing saved.
+                SurveillanceConfig savedConfig = new SurveillanceConfigManager().loadConfig();
                 pipelineV2Config = new MotionPipelineV2.Config();
-                pipelineV2Config.applyEnvironmentPreset("outdoor");  // Default preset
+                // Apply preset first (sets coherent defaults), then override with persisted specifics.
+                // Order mirrors setConfig() so behaviour is identical to a runtime config update.
+                pipelineV2Config.applyEnvironmentPreset(savedConfig.getEnvironmentPreset());
+                pipelineV2Config.applySensitivity(savedConfig.getSensitivityLevel());
+                pipelineV2Config.applyDetectionZone(savedConfig.getDetectionZone());
+                pipelineV2Config.loiteringFrames = savedConfig.getLoiteringTimeSeconds() * 10;
+                pipelineV2Config.shadowFilterMode = savedConfig.getShadowFilterMode();
+                boolean[] cameras = savedConfig.getCameraEnabled();
+                for (int i = 0; i < 4; i++) {
+                    pipelineV2Config.quadrantEnabled[i] = cameras[i];
+                }
                 pipelineV2.applyConfig(pipelineV2Config);
-                logger.info("V2 per-quadrant pipeline initialized");
+                pipelineV2Initialized = true;
+                logger.info(String.format(
+                    "V2 per-quadrant pipeline initialized: env=%s, sens=%d, zone=%s, loiter=%ds",
+                    savedConfig.getEnvironmentPreset(), savedConfig.getSensitivityLevel(),
+                    savedConfig.getDetectionZone(), savedConfig.getLoiteringTimeSeconds()));
             } else {
                 logger.error("V2 pipeline init failed");
                 pipelineV2 = null;
@@ -1860,10 +1877,14 @@ public class SurveillanceEngineGpu {
     public boolean isActive() {
         return active;
     }
-    
+
+    public boolean isPipelineV2Initialized() {
+        return pipelineV2Initialized;
+    }
+
     /**
      * Checks if currently recording.
-     * 
+     *
      * @return true if recording, false otherwise
      */
     public boolean isRecording() {

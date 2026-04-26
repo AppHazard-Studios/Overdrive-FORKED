@@ -240,96 +240,37 @@ Build APK: Android Studio → Build → Build APK (or Generate Signed APK for re
 - `Safe.java` AES key is split into 4 fragments but trivially reassembled by any decompiler. Not real security. NDK/Keystore not feasible in app_process context. Add a comment, move on.
 - Mixed Java/Kotlin split is historical. Don't migrate for its own sake.
 
----
+### Status Pill Overlay — Not Planned
 
-## v10 Port Status — Gaps, Partial Implementations, Action Items
+Partially shipped from upstream v10 but the service class was never committed by upstream. Not a current priority — the app is fully functional without it.
 
-The upstream v10 merge landed in April 2026 (PR #15). The following items from the v10 changelog are either incomplete or need on-car verification. Address these before treating v10 as fully shipped.
-
----
-
-### 1. Status Pill Overlay — PARTIAL (class files missing from upstream)
-
-**State:** Partially shipped. Layouts and renderers are present but the service class itself was never committed by upstream.
-
-**What's present:**
+**What's present (assets, drawables, and renderers are all in the repo):**
 - `res/layout/overlay_status.xml` — full pill + expanded overlay layout
 - `res/drawable/overlay_pill_background.xml`, `overlay_expanded_background.xml`, `overlay_action_button_bg.xml`
 - `res/drawable/ic_overlay_rec_active/inactive.xml`, `ic_overlay_trip_active/inactive.xml`
 - `OverlayBitmapRenderer.java` — renders trip/recording state onto a Canvas bitmap
 - `OverlayDoubleBuffer.java` — double-buffered overlay frame management
 
-**What's missing (never committed by upstream):**
-- `StatusOverlayService.kt/.java` — the foreground service that creates the `SYSTEM_ALERT_WINDOW` overlay, binds to the daemon, and drives `OverlayBitmapRenderer`
-- `SetupGuideDialog.kt/.java` — dialog that guides user to grant overlay permission
+**What's missing (never committed by upstream, intentionally left unimplemented):**
+- `StatusOverlayService.kt/.java` — foreground service using `SYSTEM_ALERT_WINDOW` + `WindowManager.addView()`
+- `SetupGuideDialog.kt/.java` — dialog to guide user to grant overlay permission
 
-**Stripped from our port (because classes don't exist):**
+**Stripped from the port (because the service class doesn't exist):**
 - `SYSTEM_ALERT_WINDOW` permission in `AndroidManifest.xml`
 - `<service android:name="...StatusOverlayService">` manifest entry
-- `startStatusOverlay()` method call in `MainActivity.kt`
+- `startStatusOverlay()` call in `MainActivity.kt`
 
-**To complete:** Implement `StatusOverlayService` as a foreground service using `SYSTEM_ALERT_WINDOW`, `WindowManager.addView()`, and `overlay_status.xml`. Implement `SetupGuideDialog` to direct user to Settings → Apps → Special app access → Display over other apps. Then restore the three stripped references. Requires on-car test.
-
-**Priority:** Medium — visible feature gap, but app is functional without it.
+If this is ever wanted: implement `StatusOverlayService` as a foreground service using `overlay_status.xml`, implement `SetupGuideDialog` to direct user to Settings → Apps → Special app access → Display over other apps, then restore the three stripped references. Requires on-car test.
 
 ---
 
-### 2. Surveillance Config Persistence — NOT WORKING on daemon restart
+## v10 Port Status — Remaining Action Items
 
-**State:** Bug. User-configured surveillance settings (sensitivity, preset, camera selection, cooldown, min motion area) are saved by the UI but silently discarded on every daemon restart.
-
-**Root cause:** `SurveillanceEngineGpu.java` line 281 hardcodes `applyEnvironmentPreset("outdoor")` at init and never calls `SurveillanceConfigManager.loadConfig()`. The config manager (`SurveillanceConfigManager.kt`) correctly persists to/from `UnifiedConfigManager` and is used by `SurveillanceApiHandler` on API calls — but the engine ignores it at startup.
-
-**Fix required:**
-- In `SurveillanceEngineGpu.java` `init()` or `initPipelineV2()`, call `SurveillanceConfigManager.loadConfig()` and apply the returned config to `pipelineV2Config` before calling `pipelineV2.init()`.
-- If no saved config exists, fall back to `applyEnvironmentPreset("outdoor")` as default.
-- The `SurveillanceApiHandler` already has the save path wired correctly; only the load path at startup is missing.
-
-**Files to edit:** `SurveillanceEngineGpu.java` (init section, around line 278–285), `SurveillanceConfigManager.kt` (verify `loadConfig()` returns a usable config object).
-
-**Priority:** High — user settings silently reset to defaults every time the car restarts.
+The upstream v10 merge landed in April 2026 (PR #15). Items below need on-car verification before v10 is fully confirmed working.
 
 ---
 
-### 3. MotionPipelineV2 Init Failure — Silent Surveillance Blackout
-
-**State:** Risk. If `MotionPipelineV2.init()` fails on first on-car deployment (JNI library load failure, native crash, or missing OpenCV), surveillance silently stops processing all frames. No fallback, no UI alert, no log surfacing to the user.
-
-**Current behaviour:** `SurveillanceEngineGpu` sets `pipelineV2 = null` on init failure and logs `"V2 pipeline not initialized — skipping frame"` at warn level on every frame. This is daemon-side only — the user sees no motion alerts and has no indication why.
-
-**What v10 removed:** The old motion detection path (v1) was replaced wholesale by `MotionPipelineV2`. There is no fallback path.
-
-**Recommended fix:**
-- Add a daemon→UI status broadcast when `pipelineV2` init fails, surfacing it in the surveillance status indicator in the web UI.
-- Or at minimum: log at ERROR level (not warn) and write a sentinel file that the UI can poll to show a "Surveillance inactive" badge.
-- Do NOT implement a v1 fallback — that code is gone and the effort is not worth it.
-
-**Files to examine:** `SurveillanceEngineGpu.java` (init failure path), `SurveillanceIpcServer.java` (status broadcast mechanism), `assets/web/shared/surveillance.js` (UI status display).
-
-**Priority:** Medium — only triggers on a hard init failure. Verify first on-car that the pipeline initialises correctly; if it does, this is a latent risk only.
-
----
-
-### 4. MQTT SSL/TLS — Backend Complete, UI Missing Toggle
-
-**State:** Backend done, UI gap. SSL connections work but users cannot enable them from the settings page.
-
-**What works:** `MqttConnectionManager.java` applies `ProxyHelper.getTrustAllSslFactory()` when `trustAllCerts` is set and the URI scheme is `ssl://` or `tls://`. The trust-all factory is correctly wired at three connection points (lines 117, 126, 142).
-
-**What's missing:** `assets/web/local/mqtt.html` has no toggle for `trustAllCerts` and no certificate upload form. Users with self-signed broker certs (Home Assistant, local Mosquitto) cannot enable SSL without manually editing config via ADB.
-
-**Fix required:** Add to `mqtt.html`:
-- A checkbox or toggle for "Trust all certificates (self-signed)" that sets `trustAllCerts` in the MQTT config
-- Optionally: an input field for the broker URI with `ssl://` / `mqtts://` prefix hint
-- Wire through `MqttApiHandler.java` — the config field already exists in `MqttConnectionConfig.java`
-
-**Files to edit:** `assets/web/local/mqtt.html`, confirm `MqttApiHandler.java` already handles `trustAllCerts` in the config save path (it does).
-
-**Priority:** Medium — SSL works but is inaccessible from the UI. Affects anyone using Mosquitto with TLS or Home Assistant with HTTPS MQTT.
-
----
-
-### 5. Camera Reconfiguration Flow — Needs On-Car Verification
+### 1. Camera Reconfiguration Flow — Needs On-Car Verification
 
 **State:** Wired but untested on physical hardware.
 
@@ -340,11 +281,13 @@ The upstream v10 merge landed in April 2026 (PR #15). The following items from t
 - Does clearing the probe config and restarting the daemon correctly trigger the camera identification flow?
 - Does the resulting camera assignment actually fix swapped/mismatched feeds for Global Atto 3?
 
+**Camera quad labels are stable:** The BYD HAL always outputs the same fixed mosaic layout (top-left=Rear, top-right=Left, bottom-left=Front, bottom-right=Right). The `CameraView` enum labels in `MultiCameraGLView.kt` are correctly hardcoded to match this hardware layout. Reconfiguration only changes which camera ID/surface mode produces the mosaic stream — it does not alter the mosaic's quadrant positions, so the FRONT/RIGHT/REAR/LEFT labels are always accurate regardless of probe result.
+
 **Priority:** Low for now — the existing camera config is already working on the test device. Only needed if feeds appear swapped after a firmware update or on a different trim/model year.
 
 ---
 
-### 6. Multi-Camera UV Calibration — On-Car Only
+### 2. Multi-Camera UV Calibration — On-Car Only
 
 **State:** Set from code inspection. Not verified on physical hardware.
 
@@ -356,10 +299,10 @@ The upstream v10 merge landed in April 2026 (PR #15). The following items from t
 
 When next deploying to the Atto 3, verify these in order:
 
-1. **MotionPipelineV2 init** — does surveillance start cleanly? Check daemon logs for `"V2 pipeline initialized"` vs `"not initialized"`.
+1. **MotionPipelineV2 init** — does surveillance start cleanly? Check daemon logs for `"V2 pipeline initialized"` vs `"not initialized"`. If init fails, the surveillance page now shows a "Motion detection unavailable" warning.
 2. **Surveillance detection** — does motion in the camera FOV trigger an event? Check all four quadrants independently.
 3. **Surveillance config persistence** — change a setting (e.g. sensitivity), restart the car, confirm the setting survived.
 4. **Camera reconfiguration** — trigger from drawer menu; confirm the probe flow runs and camera feeds are assigned correctly.
-5. **MQTT SSL** — if using a TLS broker, verify connection works (currently requires manual config edit until UI toggle is added).
-6. **Status overlay** — N/A until `StatusOverlayService` is implemented.
-7. **Multi-camera UV** — confirm no feeds are vertically inverted.
+5. **MQTT SSL** — if using a TLS broker, enable the "Trust all certificates" toggle in MQTT settings and verify the connection works end-to-end.
+6. **Multi-camera UV** — confirm no feeds are vertically inverted.
+7. **Video player CAS shader** — play back a recording and expand a single camera feed; confirm the sharpening is visually effective and has no GPU impact on recording/surveillance.
