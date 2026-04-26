@@ -290,15 +290,3 @@ Detection markers in the scrubber/timeline appear too small/short. Audit whether
 
 ### 5. Drive Mode Overlay — Multi-Camera Player Compatibility
 The HUD overlay is **burned into the video file** at record time by `GpuMosaicRecorder`. Position was changed to top-left quadrant (FRONT camera area) only, using NDC coords `x=-1..0, y=0.833..1.0`. On-car test required to verify positioning. No live-rendering conflict exists.
-
----
-
-## Phase 2 — Code Quality (Upstream Contribution Candidates)
-
-All safe to contribute upstream as individual PRs via `contrib/*` branches:
-
-1. **Deduplicate `PermissionBypassContext`** — copy-pasted between `CameraDaemon.java` and `DaemonBootstrap.java`. One canonical version in `DaemonBootstrap` only.
-2. **Delete dead stubs in `CameraDaemon`** — `startStreaming()`, `stopStreaming()`, `startAllStreaming()` just log "removed". Delete them.
-3. **`HttpServer` connection timeouts** — 32-thread pool, no timeout enforcement. Add timeouts before tunnel exposure makes this a real risk.
-4. **Unit tests** — `RecordingModeManager`, `ProximityGuardController`, `TripDetector` are pure logic, no hardware deps. Add tests.
-5. **Remote Web UI multi-camera viewer** — port the GLSurfaceView playback concept to the browser-based player in `HttpServer.java` HTML assets. Separate task, separate files from the Android UI implementation.
