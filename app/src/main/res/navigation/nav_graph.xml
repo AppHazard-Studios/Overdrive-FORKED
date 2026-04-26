@@ -128,6 +128,17 @@
     </fragment>
 
     <fragment
+        android:id="@+id/performanceFragment"
+        android:name="com.overdrive.app.ui.fragment.WebViewFragment"
+        android:label="Performance"
+        tools:layout="@layout/fragment_webview">
+        <argument
+            android:name="page_path"
+            app:argType="string"
+            android:defaultValue="/performance" />
+    </fragment>
+
+    <fragment
         android:id="@+id/logsFragment"
         android:name="com.overdrive.app.ui.fragment.LogsFragment"
         android:label="Logs"

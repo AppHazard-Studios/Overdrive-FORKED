@@ -178,7 +178,8 @@ Before editing anything, look up the screen here. Do not assume. Do not guess.
 | Dashboard | WebView → `local/index.html` | `assets/web/local/index.html`, `assets/web/shared/*.js` |
 | Recording Settings | WebView → `local/recording.html` | `assets/web/local/recording.html`, `assets/web/shared/recording.js` |
 | Surveillance Settings | WebView → `local/surveillance.html` | `assets/web/local/surveillance.html`, `assets/web/shared/surveillance.js` |
-| Performance | WebView → `local/performance.html` | `assets/web/local/performance.html` |
+| Performance | WebView → `local/performance.html` | `assets/web/local/performance.html`, `assets/web/shared/performance.js` |
+| MQTT | WebView → `local/mqtt.html` | `assets/web/local/mqtt.html`, `assets/web/shared/mqtt.js` |
 | ABRP | WebView → `local/abrp.html` | `assets/web/local/abrp.html` |
 | Trips | WebView → `local/trips.html` | `assets/web/local/trips.html` |
 

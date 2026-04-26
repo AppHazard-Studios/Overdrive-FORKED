@@ -473,7 +473,7 @@ class MainActivity : AppCompatActivity() {
                 R.id.recordingFragment, R.id.adbConsoleFragment,
                 R.id.eventsFragment, R.id.sentryConfigFragment,
                 R.id.telegramSettingsFragment, R.id.abrpSettingsFragment,
-                R.id.mqttFragment, R.id.tripsFragment, R.id.logsFragment
+                R.id.mqttFragment, R.id.tripsFragment, R.id.performanceFragment, R.id.logsFragment
             ),
             drawerLayout
         )
