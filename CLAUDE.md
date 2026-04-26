@@ -258,35 +258,48 @@ Build APK: Android Studio → Build → Build APK (or Generate Signed APK for re
 
 ---
 
-## Current Task
+All work is on branch `main`.
 
-All work is on branch `feature/events-player-improvements`.
+## Current Task: Port Overdrive Upstream v10 into Our Fork
 
-### ✅ 1. SD Card Recording — Drive Recordings Missing from App
-Fixed. Root causes:
-- `StorageManager` constructor ran `discoverSdCard()` before `loadConfig()` — created Overdrive folders on any USB drive regardless of storage setting. Fixed by reordering constructor.
-- SD card path was `/storage/UUID/Overdrive/` which app UID can't access via FUSE. Changed to `Android/data/com.overdrive.app/files/Overdrive/` (app owns this path).
-- `RecordingScanner` now uses `context.getExternalFilesDirs(null)` to locate SD card correctly.
+### Background
+The upstream repo we forked from has released **v10** with major changes. Our fork has been synced and the upstream changes are available on the upstream-sync branch (confirm exact branch name before starting). The bulk of the diff lives in `app/src/main/`.
 
-### ✅ 2. Event Thumbnails — Layout & Overlay Redesign
-Fixed. Changes were to **native Kotlin/XML** (not events.html — see screen mapping above):
-- `GridLayoutManager` changed from 2 → 3 columns in `RecordingLibraryFragment.kt`
-- `item_recording.xml` rewritten: ConstraintLayout with `dimensionRatio="H,4:3"` for thumbnail (matches 2560×1920 mosaic), `scaleType="fitCenter"` (no cropping), dark scrim removed
-- Time-only footer below thumbnail, file size removed
-- Duration read from `MediaMetadataRetriever` in async load — no more "--:--" placeholder
-- `formattedTime` changed to `"h:mm a"` (12-hour, no seconds) in `RecordingFile.kt`
-- Filter tabs: "Rec" → "Normal", "Prox" → "Proximity"
-- Badge labels: "REC" → "NORMAL", "PROX" → "PROXIMITY"
+### Upstream v10 Changelog (per maintainer)
+- **Camera reconfiguration** — new setup flow to identify and assign correct camera/video feeds across BYD models; resolves mismatched or swapped inputs across trims and model years.
+- **Status pill overlay** — persistent floating indicator for real-time recording and trip status; auto-hides when ACC is off, reappears when car starts.
+- **MQTT SSL/TLS support** — secure connections to MQTT brokers (Home Assistant, Mosquitto with TLS/SSL) now work properly.
+- **Surveillance detection overhaul** — major rework of the motion detection pipeline. Multi-camera trigger selection, improved algorithm with fewer false positives, new filters (sensitivity cooldown, minimum motion area), preset configs (parking, outdoor, etc.).
+- **BYD camera no-signal fix** — resolves native camera signal loss when Overdrive runs alongside BYD dashcam.
+- **CPU performance** — ~10–15% lower CPU usage across recording/surveillance pipeline.
+- **Event deletion fix** — automated event deletion now properly removes files from storage.
+- **SOH and energy display fixes** — corrected SOH estimation; fixed incorrect kWh consumption on trip details; charging power now displays correctly.
 
-### ✅ 4. Event Filter Labels — Use Full Words
-Done as part of Task 2 above.
+### Workflow — Stop and Wait Between Phases
 
-### 3. Video Player — Detection Marker Audit
-Detection markers in the scrubber/timeline appear too small/short. Audit whether:
-- Detection segments are being read and mapped correctly to video duration
-- Markers are proportionally sized to their actual duration
-- Colour-coding by event type is implemented (and icons if supported)
-- Scope: `MultiCameraPlayerFragment.kt`, `EventTimelineView.kt`, `fragment_multi_camera_player.xml`
+#### Phase 1 — Investigation (read-only, no code edits)
+1. Diff the upstream-sync branch against our working branch, focused on `app/src/main/`.
+2. Map each v10 changelog item to the actual files / commits / modules touched.
+3. Identify any of **our** customizations that overlap with files or systems being changed upstream.
+4. Surface conflict zones, risky areas, and any breaking API changes.
+5. **Deliverable:** a written summary — files changed, scope per feature, overlap with our work. No code edits.
 
-### 5. Drive Mode Overlay — Multi-Camera Player Compatibility
-The HUD overlay is **burned into the video file** at record time by `GpuMosaicRecorder`. Position was changed to top-left quadrant (FRONT camera area) only, using NDC coords `x=-1..0, y=0.833..1.0`. On-car test required to verify positioning. No live-rendering conflict exists.
+#### Phase 2 — Strategy Analysis
+Critically evaluate both integration strategies and recommend one:
+
+- **Option A — Merge upstream into our branch.** Port v10 changes into the existing fork branch, resolving conflicts in place. Preserves our git history and customizations where they sit.
+- **Option B — Rebase our work onto upstream v10.** Treat upstream v10 as the new base and re-apply our customizations on top. Cleaner result, but requires re-doing and re-validating our changes.
+
+For each option, lay out: effort, risk, conflict surface, ease of pulling future upstream releases, history cleanliness. End with a clear recommendation and reasoning. Wait for my confirmation before moving on.
+
+#### Phase 3 — Implementation Plan
+Once a strategy is confirmed, produce a step-by-step plan: branch setup, order of operations, areas needing manual conflict resolution, testing checkpoints, rollback plan. Wait for approval.
+
+#### Phase 4 — Implementation
+Execute only after the Phase 3 plan is approved. One consolidated change per response per my standing rules.
+
+### Constraints
+- **Plan before code.** No edits during Phases 1 or 2.
+- **Pause for confirmation** at the end of every phase.
+- Keep changes scoped to `app/src/main/` unless investigation shows otherwise — flag if it spreads.
+- If a problem recurs twice, stop and propose a different approach.
