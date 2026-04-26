@@ -7,7 +7,7 @@ Fork of OverDrive — an Android dashcam/sentry app that runs on BYD DiLink v3 h
 - **Fork (origin):** `https://github.com/AppHazard-Studios/Overdrive-FORKED`
 - **Upstream:** `https://github.com/yash-srivastava/Overdrive-release`
 - **Test device:** BYD Atto 3 (Global) — already running, already confirmed working
-- **Upstream sync:** `main` is confirmed in sync with upstream as of April 2026. Do not suggest pulling upstream updates unless asked.
+- **Upstream sync:** `main` is confirmed in sync with upstream v10 as of April 2026. Do not suggest pulling upstream updates unless asked.
 
 ---
 
@@ -24,9 +24,9 @@ Both remotes are already configured. `upstream-sync` is a local tracking branch 
 
 | Branch | Purpose |
 |---|---|
-| `main` | Clean mirror of upstream. Fork-only changes do NOT live here. |
-| `upstream-sync` | Tracks `upstream/main`. For comparison only. |
-| `feature/*` | Fork-specific features (multi-camera viewer, events redesign, etc.) |
+| `main` | Fork base — includes all upstream v10 changes plus all fork customizations. |
+| `upstream-sync` | Tracks `upstream/main`. For comparison only, never pushed. |
+| `feature/*` | Fork-specific features |
 | `fix/*` | Fork-specific bug fixes |
 | `contrib/*` | Upstream contribution candidates — cherry-picked from feature/* |
 
@@ -121,7 +121,7 @@ These are all in the daemon layer which runs as a separate process under a diffe
 
 | Daemon | Role |
 |---|---|
-| `CameraDaemon.java` | GPU pipeline, HTTP server, recording, telemetry — 2100 lines, all static state |
+| `CameraDaemon.java` | GPU pipeline, HTTP server, recording, telemetry — DO NOT MODIFY |
 | `AccSentryDaemon.java` | ACC/ignition monitoring |
 | `SentryDaemon.java` | UID 1000, ACC lock, network UID whitelisting |
 | `TelegramBotDaemon.java` | Telegram alerts |
@@ -141,9 +141,13 @@ BYD AVMCamera (reflection)
   → SurfaceTexture (GL_TEXTURE_EXTERNAL_OES)
   → OpenGL ES
        ├── GpuMosaicRecorder → MediaCodec H.264 → MP4
-       │    └── H264CircularBuffer (pre-event buffer)
+       │    ├── H264CircularBuffer (pre-event buffer)
+       │    └── TBC smoothing (Dynamic Time-Base Corrector, EMA over ~5.5fps)
        └── GpuDownscaler (320×240 @ 2fps)
-            └── SurveillanceEngineGpu (motion detection)
+            └── GpuSurveillancePipeline
+                 ├── MotionPipelineV2 (v10) — 6-stage per-quadrant filter
+                 │    └── native_motion + motion_pipeline_v2 (C++/NEON JNI)
+                 ├── CrossQuadrantTracker / FoveatedCropper (v10)
                  └── TelegramNotifier
 ```
 
@@ -151,6 +155,8 @@ BYD AVMCamera (reflection)
 The BYD HAL outputs one 5120×960 panoramic strip. `GpuMosaicRecorder` GPU shader composes this into a **2560×1920 2×2 grid → single MP4 per event**. There is no per-camera file. This cannot be changed without touching DO NOT MODIFY files.
 
 Playback of individual camera angles is done at the UI layer: one `MediaPlayer` → one `SurfaceTexture` → GL_TEXTURE_EXTERNAL_OES texture → four UV-cropped GLES2 quads. See `MultiCameraGLView.kt`.
+
+**Telemetry sidecar:** `GpuMosaicRecorder` writes a `.json` file alongside each `.mp4` at recording close. Contains speed, gear, pedal, and signal data sampled at ~5fps. The overlay bar is pinned to the FRONT camera quadrant (NDC 0.9167→1.0, x: -1.0→0.0) — physically calibrated; do not adjust without on-car verification.
 
 ---
 
@@ -179,7 +185,7 @@ Before editing anything, look up the screen here. Do not assume. Do not guess.
 **The events page is native Kotlin. `assets/web/local/events.html` and `assets/web/shared/events.js` are for the remote browser UI only. Editing those files has zero effect on what the user sees in the Android app.**
 
 #### Why the events page is native
-`WebViewFragment.shouldOverrideUrlLoading()` intercepts any navigation to `/events` or `/events.html` and redirects to `RecordingLibraryFragment` via `R.id.eventsFragment`. The HTML page is never loaded on-screen. Check `WebViewFragment.kt` lines 323–343 if this ever needs revisiting.
+`WebViewFragment.shouldOverrideUrlLoading()` intercepts any navigation to `/events` or `/events.html` and redirects to `RecordingLibraryFragment` via `R.id.eventsFragment`. The HTML page is never loaded on-screen.
 
 #### Mandatory pre-coding check
 Before editing any file for an on-screen UI task:
@@ -200,14 +206,17 @@ Before editing any file for an on-screen UI task:
 
 **Rule: A change to `assets/web/` does NOT affect the Android on-screen UI for the events or video player screens. A change to Kotlin/XML does NOT affect the remote browser UI. They are independent.**
 
+**Web asset caching note:** `HttpServer.java` extracts `assets/web/` to `/data/local/tmp/web/` once at daemon start. If that directory exists from a prior install, old files are served. After updating web assets, either `adb shell rm -rf /data/local/tmp/web` or do a full uninstall + reinstall to force re-extraction.
+
 ---
 
 ## DO NOT MODIFY — Ever
 
-- `CameraDaemon.java` — fragile static god class, 2100 lines. Any change here = on-car test required.
-- `GpuMosaicRecorder`, `GpuDownscaler` — GPU pipeline
+- `CameraDaemon.java` — fragile static god class. Any change here = on-car test required.
+- `GpuMosaicRecorder.java`, `GpuDownscaler.java` — GPU pipeline
 - `native_motion.cpp` — C++ NEON SIMD via JNI
-- `BydDataCollector` — hardware reflection bridge
+- `motion_pipeline_v2.cpp`, `texture_tracker.cpp` — v10 C++ surveillance pipeline (on-car test required for any change)
+- `BydDataCollector.java` — hardware reflection bridge
 - `DaemonBootstrap.java` — daemon launch + privilege setup
 
 ---
@@ -222,6 +231,8 @@ Before editing any file for an on-screen UI task:
 
 Build APK: Android Studio → Build → Build APK (or Generate Signed APK for release)
 
+**OpenCV guard:** `texture_tracker.cpp` uses `#if HAVE_OPENCV` (numerical). CMake passes `-DHAVE_OPENCV=0` when opencv-mobile is absent. Must be `#if`, not `#ifdef` — the symbol is always defined, only the value differs.
+
 ---
 
 ## Known Limitations — Document Only, Never "Fix"
@@ -231,75 +242,124 @@ Build APK: Android Studio → Build → Build APK (or Generate Signed APK for re
 
 ---
 
-## What Is Already Shipped — Do Not Redo
+## v10 Port Status — Gaps, Partial Implementations, Action Items
 
-### On `main`: UI Cleanup (merged from `ui/dashboard-logs-improvements`)
-- Removed persistent log panel from all screens (Android UI only — remote Web UI is separate)
-- Logs moved to dedicated sidebar menu item (filterable by source, clearable, exportable)
-- Dashboard redesigned to two-column landscape layout
-- URL/access mode moved into Remote Access card; PRIVATE/PUBLIC toggle inline
-- Fixed hamburger menu navigation consistency; back button works correctly
-
-### On `main`: Events Page Redesign
-- Replaced full-month calendar grid (~200dp) with compact single-row bar (~56dp)
-- Row: left/right day-navigation arrows + tappable date pill (opens DatePickerDialog) + iOS-style segmented filter (All / Normal / Sentry / Proximity)
-- Drawables added: `bg_pill.xml`, `bg_filter_tab_active.xml`
-
-### On `main`: Logs Page Color Unification
-- Controls bar unified to `bg_surface` (was `bg_elevated`) to match toolbar
-- 1dp divider added between controls bar and log list
-
-### On `main`: Multi-Camera Video Viewer
-- `MultiCameraGLView.kt` — GLSurfaceView renderer, one decoder, four UV-cropped quads
-- `MultiCameraPlayerFragment.kt` — hosts the GL view, tap-to-swap, overlay controls
-- `fragment_multi_camera_player.xml` — layout with primary (75% width) + right column (3 small feeds)
-- Navigation wired: `action_global_videoPlayer` routes to `multiCameraPlayerFragment`
-- **On-car UV calibration note:** CameraView enum UV coords were set from code inspection. If any camera feed appears vertically inverted on the physical car, swap `v0`/`v1` in that enum entry in `MultiCameraGLView.kt`. This requires an Atto 3 test to verify.
+The upstream v10 merge landed in April 2026 (PR #15). The following items from the v10 changelog are either incomplete or need on-car verification. Address these before treating v10 as fully shipped.
 
 ---
 
-All work is on branch `main`.
+### 1. Status Pill Overlay — PARTIAL (class files missing from upstream)
 
-## Current Task: Port Overdrive Upstream v10 into Our Fork
+**State:** Partially shipped. Layouts and renderers are present but the service class itself was never committed by upstream.
 
-### Background
-The upstream repo we forked from has released **v10** with major changes. Our fork has been synced and the upstream changes are available on the upstream-sync branch (confirm exact branch name before starting). The bulk of the diff lives in `app/src/main/`.
+**What's present:**
+- `res/layout/overlay_status.xml` — full pill + expanded overlay layout
+- `res/drawable/overlay_pill_background.xml`, `overlay_expanded_background.xml`, `overlay_action_button_bg.xml`
+- `res/drawable/ic_overlay_rec_active/inactive.xml`, `ic_overlay_trip_active/inactive.xml`
+- `OverlayBitmapRenderer.java` — renders trip/recording state onto a Canvas bitmap
+- `OverlayDoubleBuffer.java` — double-buffered overlay frame management
 
-### Upstream v10 Changelog (per maintainer)
-- **Camera reconfiguration** — new setup flow to identify and assign correct camera/video feeds across BYD models; resolves mismatched or swapped inputs across trims and model years.
-- **Status pill overlay** — persistent floating indicator for real-time recording and trip status; auto-hides when ACC is off, reappears when car starts.
-- **MQTT SSL/TLS support** — secure connections to MQTT brokers (Home Assistant, Mosquitto with TLS/SSL) now work properly.
-- **Surveillance detection overhaul** — major rework of the motion detection pipeline. Multi-camera trigger selection, improved algorithm with fewer false positives, new filters (sensitivity cooldown, minimum motion area), preset configs (parking, outdoor, etc.).
-- **BYD camera no-signal fix** — resolves native camera signal loss when Overdrive runs alongside BYD dashcam.
-- **CPU performance** — ~10–15% lower CPU usage across recording/surveillance pipeline.
-- **Event deletion fix** — automated event deletion now properly removes files from storage.
-- **SOH and energy display fixes** — corrected SOH estimation; fixed incorrect kWh consumption on trip details; charging power now displays correctly.
+**What's missing (never committed by upstream):**
+- `StatusOverlayService.kt/.java` — the foreground service that creates the `SYSTEM_ALERT_WINDOW` overlay, binds to the daemon, and drives `OverlayBitmapRenderer`
+- `SetupGuideDialog.kt/.java` — dialog that guides user to grant overlay permission
 
-### Workflow — Stop and Wait Between Phases
+**Stripped from our port (because classes don't exist):**
+- `SYSTEM_ALERT_WINDOW` permission in `AndroidManifest.xml`
+- `<service android:name="...StatusOverlayService">` manifest entry
+- `startStatusOverlay()` method call in `MainActivity.kt`
 
-#### Phase 1 — Investigation (read-only, no code edits)
-1. Diff the upstream-sync branch against our working branch, focused on `app/src/main/`.
-2. Map each v10 changelog item to the actual files / commits / modules touched.
-3. Identify any of **our** customizations that overlap with files or systems being changed upstream.
-4. Surface conflict zones, risky areas, and any breaking API changes.
-5. **Deliverable:** a written summary — files changed, scope per feature, overlap with our work. No code edits.
+**To complete:** Implement `StatusOverlayService` as a foreground service using `SYSTEM_ALERT_WINDOW`, `WindowManager.addView()`, and `overlay_status.xml`. Implement `SetupGuideDialog` to direct user to Settings → Apps → Special app access → Display over other apps. Then restore the three stripped references. Requires on-car test.
 
-#### Phase 2 — Strategy Analysis
-Critically evaluate both integration strategies and recommend one:
+**Priority:** Medium — visible feature gap, but app is functional without it.
 
-- **Option A — Merge upstream into our branch.** Port v10 changes into the existing fork branch, resolving conflicts in place. Preserves our git history and customizations where they sit.
-- **Option B — Rebase our work onto upstream v10.** Treat upstream v10 as the new base and re-apply our customizations on top. Cleaner result, but requires re-doing and re-validating our changes.
+---
 
-For each option, lay out: effort, risk, conflict surface, ease of pulling future upstream releases, history cleanliness. End with a clear recommendation and reasoning. Wait for my confirmation before moving on.
+### 2. Surveillance Config Persistence — NOT WORKING on daemon restart
 
-#### Phase 3 — Implementation Plan
-Once a strategy is confirmed, produce a step-by-step plan: branch setup, order of operations, areas needing manual conflict resolution, testing checkpoints, rollback plan. Wait for approval.
+**State:** Bug. User-configured surveillance settings (sensitivity, preset, camera selection, cooldown, min motion area) are saved by the UI but silently discarded on every daemon restart.
 
-#### Phase 4 — Implementation
-Execute only after the Phase 3 plan is approved. One consolidated change per response per my standing rules.
+**Root cause:** `SurveillanceEngineGpu.java` line 281 hardcodes `applyEnvironmentPreset("outdoor")` at init and never calls `SurveillanceConfigManager.loadConfig()`. The config manager (`SurveillanceConfigManager.kt`) correctly persists to/from `UnifiedConfigManager` and is used by `SurveillanceApiHandler` on API calls — but the engine ignores it at startup.
 
-### Constraints
-- **Plan before code.** No edits during Phases 1 or 2.
-- **Pause for confirmation** at the end of every phase.
-- Keep changes scoped to `app/src/main/` unless investigation shows otherwise — flag if it spreads.
-- If a problem recurs twice, stop and propose a different approach.
+**Fix required:**
+- In `SurveillanceEngineGpu.java` `init()` or `initPipelineV2()`, call `SurveillanceConfigManager.loadConfig()` and apply the returned config to `pipelineV2Config` before calling `pipelineV2.init()`.
+- If no saved config exists, fall back to `applyEnvironmentPreset("outdoor")` as default.
+- The `SurveillanceApiHandler` already has the save path wired correctly; only the load path at startup is missing.
+
+**Files to edit:** `SurveillanceEngineGpu.java` (init section, around line 278–285), `SurveillanceConfigManager.kt` (verify `loadConfig()` returns a usable config object).
+
+**Priority:** High — user settings silently reset to defaults every time the car restarts.
+
+---
+
+### 3. MotionPipelineV2 Init Failure — Silent Surveillance Blackout
+
+**State:** Risk. If `MotionPipelineV2.init()` fails on first on-car deployment (JNI library load failure, native crash, or missing OpenCV), surveillance silently stops processing all frames. No fallback, no UI alert, no log surfacing to the user.
+
+**Current behaviour:** `SurveillanceEngineGpu` sets `pipelineV2 = null` on init failure and logs `"V2 pipeline not initialized — skipping frame"` at warn level on every frame. This is daemon-side only — the user sees no motion alerts and has no indication why.
+
+**What v10 removed:** The old motion detection path (v1) was replaced wholesale by `MotionPipelineV2`. There is no fallback path.
+
+**Recommended fix:**
+- Add a daemon→UI status broadcast when `pipelineV2` init fails, surfacing it in the surveillance status indicator in the web UI.
+- Or at minimum: log at ERROR level (not warn) and write a sentinel file that the UI can poll to show a "Surveillance inactive" badge.
+- Do NOT implement a v1 fallback — that code is gone and the effort is not worth it.
+
+**Files to examine:** `SurveillanceEngineGpu.java` (init failure path), `SurveillanceIpcServer.java` (status broadcast mechanism), `assets/web/shared/surveillance.js` (UI status display).
+
+**Priority:** Medium — only triggers on a hard init failure. Verify first on-car that the pipeline initialises correctly; if it does, this is a latent risk only.
+
+---
+
+### 4. MQTT SSL/TLS — Backend Complete, UI Missing Toggle
+
+**State:** Backend done, UI gap. SSL connections work but users cannot enable them from the settings page.
+
+**What works:** `MqttConnectionManager.java` applies `ProxyHelper.getTrustAllSslFactory()` when `trustAllCerts` is set and the URI scheme is `ssl://` or `tls://`. The trust-all factory is correctly wired at three connection points (lines 117, 126, 142).
+
+**What's missing:** `assets/web/local/mqtt.html` has no toggle for `trustAllCerts` and no certificate upload form. Users with self-signed broker certs (Home Assistant, local Mosquitto) cannot enable SSL without manually editing config via ADB.
+
+**Fix required:** Add to `mqtt.html`:
+- A checkbox or toggle for "Trust all certificates (self-signed)" that sets `trustAllCerts` in the MQTT config
+- Optionally: an input field for the broker URI with `ssl://` / `mqtts://` prefix hint
+- Wire through `MqttApiHandler.java` — the config field already exists in `MqttConnectionConfig.java`
+
+**Files to edit:** `assets/web/local/mqtt.html`, confirm `MqttApiHandler.java` already handles `trustAllCerts` in the config save path (it does).
+
+**Priority:** Medium — SSL works but is inaccessible from the UI. Affects anyone using Mosquitto with TLS or Home Assistant with HTTPS MQTT.
+
+---
+
+### 5. Camera Reconfiguration Flow — Needs On-Car Verification
+
+**State:** Wired but untested on physical hardware.
+
+**What's present:** Drawer menu item `nav_reconfigure_camera`, `onReconfigureCameraClicked()` in `MainActivity.kt` (clears saved camera probe config via `UnifiedConfigManager`, kills daemon via `AdbDaemonLauncher`, triggers auto-restart with full camera probe), `dialog_setup_guide.xml` layout, `ic_camera_probe.xml` drawable.
+
+**What needs verifying on the Atto 3:**
+- Does `dialog_setup_guide.xml` render correctly in landscape on the DiLink screen?
+- Does clearing the probe config and restarting the daemon correctly trigger the camera identification flow?
+- Does the resulting camera assignment actually fix swapped/mismatched feeds for Global Atto 3?
+
+**Priority:** Low for now — the existing camera config is already working on the test device. Only needed if feeds appear swapped after a firmware update or on a different trim/model year.
+
+---
+
+### 6. Multi-Camera UV Calibration — On-Car Only
+
+**State:** Set from code inspection. Not verified on physical hardware.
+
+`MultiCameraGLView.kt` UV coordinates for each camera quadrant in the `CameraView` enum were derived from the mosaic layout, not observed on the car. If any feed appears vertically inverted, swap `v0`/`v1` for that camera entry. Requires the Atto 3 to confirm.
+
+---
+
+## On-Car Test Checklist (Priority Order)
+
+When next deploying to the Atto 3, verify these in order:
+
+1. **MotionPipelineV2 init** — does surveillance start cleanly? Check daemon logs for `"V2 pipeline initialized"` vs `"not initialized"`.
+2. **Surveillance detection** — does motion in the camera FOV trigger an event? Check all four quadrants independently.
+3. **Surveillance config persistence** — change a setting (e.g. sensitivity), restart the car, confirm the setting survived.
+4. **Camera reconfiguration** — trigger from drawer menu; confirm the probe flow runs and camera feeds are assigned correctly.
+5. **MQTT SSL** — if using a TLS broker, verify connection works (currently requires manual config edit until UI toggle is added).
+6. **Status overlay** — N/A until `StatusOverlayService` is implemented.
+7. **Multi-camera UV** — confirm no feeds are vertically inverted.
