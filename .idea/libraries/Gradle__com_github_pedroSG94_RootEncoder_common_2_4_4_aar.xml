@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: com.github.pedroSG94.RootEncoder:common:2.4.4@aar" external-system-id="GRADLE">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/8.13/transforms/6fddbe318d96b6cdb45bf4a3aea2e12c/transformed/common-2.4.4/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/8.13/transforms/6fddbe318d96b6cdb45bf4a3aea2e12c/transformed/common-2.4.4/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

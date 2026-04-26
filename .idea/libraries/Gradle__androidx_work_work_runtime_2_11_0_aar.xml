@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="Gradle: androidx.work:work-runtime:2.11.0@aar" external-system-id="GRADLE">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/8.13/transforms/71ba635a2a7cfd35a622a90c014ac3a1/transformed/work-runtime-2.11.0/jars/classes.jar!/" />
+      <root url="file://$USER_HOME$/.gradle/caches/8.13/transforms/71ba635a2a7cfd35a622a90c014ac3a1/transformed/work-runtime-2.11.0/res" />
+      <root url="file://$USER_HOME$/.gradle/caches/8.13/transforms/71ba635a2a7cfd35a622a90c014ac3a1/transformed/work-runtime-2.11.0/AndroidManifest.xml" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/androidx.work/work-runtime/2.11.0/56ef84ca81d44b6c99e69fc9042cea8a8f028c72/work-runtime-2.11.0-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
