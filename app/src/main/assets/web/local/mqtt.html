@@ -316,6 +316,16 @@
                             </div>
                             <div style="display:flex;align-items:center;justify-content:space-between;">
                                 <div>
+                                    <div style="font-size:14px;color:var(--text-primary);font-weight:500;">Trust all certificates (self-signed)</div>
+                                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Required for Mosquitto, Home Assistant, and other self-signed TLS brokers. Use <code style="font-size:11px;color:var(--brand-primary);">ssl://</code> or <code style="font-size:11px;color:var(--brand-primary);">tls://</code> prefix in broker URL.</div>
+                                </div>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="formTrustAllCerts">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <div>
                                     <div style="font-size:14px;color:var(--text-primary);font-weight:500;">Enable Connection</div>
                                     <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Start publishing immediately after saving</div>
                                 </div>

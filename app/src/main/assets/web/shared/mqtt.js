@@ -179,6 +179,7 @@ const MQTT = {
         document.getElementById('formInterval').value = '5';
         document.getElementById('formAdaptive').checked = true;
         document.getElementById('formRetain').checked = false;
+        document.getElementById('formTrustAllCerts').checked = false;
         document.getElementById('formEnabled').checked = true;
         document.getElementById('formCard').style.display = 'block';
         document.getElementById('formName').focus();
@@ -202,6 +203,7 @@ const MQTT = {
         document.getElementById('formInterval').value = conn.publishIntervalSeconds || 5;
         document.getElementById('formAdaptive').checked = conn.adaptiveInterval !== false;
         document.getElementById('formRetain').checked = conn.retainMessages || false;
+        document.getElementById('formTrustAllCerts').checked = conn.trustAllCerts || false;
         document.getElementById('formEnabled').checked = conn.enabled || false;
         document.getElementById('formCard').style.display = 'block';
         document.getElementById('formName').focus();
@@ -225,6 +227,7 @@ const MQTT = {
             publishIntervalSeconds: parseInt(document.getElementById('formInterval').value) || 5,
             adaptiveInterval: document.getElementById('formAdaptive').checked,
             retainMessages: document.getElementById('formRetain').checked,
+            trustAllCerts: document.getElementById('formTrustAllCerts').checked,
             enabled: document.getElementById('formEnabled').checked
         };
 
