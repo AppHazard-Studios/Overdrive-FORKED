@@ -52,6 +52,7 @@
     <uses-permission android:name="android.permission.DEVICE_POWER" />
     <!-- Data cache (for ACC whitelist) -->
     <uses-permission android:name="android.permission.ACCESS_APPOPSDATA" />
+    
 
     <application
         android:name="com.overdrive.app.OverdriveApplication"

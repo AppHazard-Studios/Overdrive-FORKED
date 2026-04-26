@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="Gradle: dev.mobile:dadb:1.2.8" type="java-imported" external-system-id="GRADLE">
+    <properties groupId="dev.mobile" artifactId="dadb" version="1.2.8" baseVersion="1.2.8" />
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.gradle/caches/modules-2/files-2.1/dev.mobile/dadb/1.2.8/9f29d2448da8f69aec8828a04e3a2a4cc2e616c5/dadb-1.2.8.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
