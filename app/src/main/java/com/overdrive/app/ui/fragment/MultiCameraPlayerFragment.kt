@@ -60,6 +60,7 @@ class MultiCameraPlayerFragment : Fragment() {
     private lateinit var btnBack:          ImageButton
     private lateinit var btnPrev:          ImageButton
     private lateinit var btnNext:          ImageButton
+    private var btnCasToggle: com.google.android.material.button.MaterialButton? = null
 
     private val camCells      = mutableMapOf<CameraView, FrameLayout>()
     private val camIndicators = mutableMapOf<CameraView, View>()
@@ -110,6 +111,20 @@ class MultiCameraPlayerFragment : Fragment() {
         btnBack          = view.findViewById(R.id.btnBack)
         btnPrev          = view.findViewById(R.id.btnPrev)
         btnNext          = view.findViewById(R.id.btnNext)
+        btnCasToggle     = view.findViewById(R.id.btnCasToggle)
+
+        // Restore CAS state from SharedPreferences
+        val prefs = requireContext().getSharedPreferences("player_prefs", android.content.Context.MODE_PRIVATE)
+        val casOn = prefs.getBoolean("pref_cas_sharpening_enabled", true)
+        glView.setCasEnabled(casOn)
+        updateCasButton(casOn)
+
+        btnCasToggle?.setOnClickListener {
+            val newState = !glView.isCasEnabled()
+            glView.setCasEnabled(newState)
+            prefs.edit().putBoolean("pref_cas_sharpening_enabled", newState).apply()
+            updateCasButton(newState)
+        }
 
         camCells[CameraView.FRONT] = view.findViewById(R.id.camCellFront)
         camCells[CameraView.RIGHT] = view.findViewById(R.id.camCellRight)
@@ -333,6 +348,10 @@ class MultiCameraPlayerFragment : Fragment() {
     // endregion
 
     // region Formatting
+
+    private fun updateCasButton(enabled: Boolean) {
+        btnCasToggle?.alpha = if (enabled) 1f else 0.45f
+    }
 
     private fun formatTime(ms: Int): String {
         val s = ms / 1000

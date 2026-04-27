@@ -57,6 +57,9 @@ class MultiCameraGLView @JvmOverloads constructor(
     private var locSampler   = 0
     private var locIsPrimary = -1
     private var locTexelStep = -1
+    private var locCasEnabled = -1
+
+    @Volatile private var casEnabled = true
 
     @Volatile var primaryCamera: CameraView = CameraView.FRONT
         private set
@@ -74,6 +77,20 @@ class MultiCameraGLView @JvmOverloads constructor(
         primaryCamera = cam
         requestRender()
     }
+
+    /** Toggle CAS sharpening on/off. Safe to call from any thread. */
+    fun setCasEnabled(enabled: Boolean) {
+        casEnabled = enabled
+        queueEvent {
+            if (locCasEnabled >= 0) {
+                GLES20.glUseProgram(program)
+                GLES20.glUniform1f(locCasEnabled, if (enabled) 1f else 0f)
+            }
+        }
+        requestRender()
+    }
+
+    fun isCasEnabled(): Boolean = casEnabled
 
     // region GLSurfaceView.Renderer
 
@@ -105,10 +122,12 @@ class MultiCameraGLView @JvmOverloads constructor(
         locSampler   = GLES20.glGetUniformLocation(program, "uSampler")
         locIsPrimary = GLES20.glGetUniformLocation(program, "uIsPrimary")
         locTexelStep = GLES20.glGetUniformLocation(program, "uTexelStep")
+        locCasEnabled = GLES20.glGetUniformLocation(program, "uCasEnabled")
 
-        // Texel size is constant for the 2560×1920 mosaic texture — set once here.
+        // Texel size and initial CAS state are constant at program creation — set once here.
         GLES20.glUseProgram(program)
         if (locTexelStep >= 0) GLES20.glUniform2f(locTexelStep, 1f / 2560f, 1f / 1920f)
+        if (locCasEnabled >= 0) GLES20.glUniform1f(locCasEnabled, if (casEnabled) 1f else 0f)
     }
 
     override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
@@ -194,8 +213,9 @@ void main() {
 }"""
 
         // CAS (Contrast Adaptive Sharpening) fragment shader.
-        // Applied only to the large primary view (uIsPrimary == 1.0); thumbnails use plain lookup.
-        // 5 texture samples for primary (center + NSEW), 1 sample for thumbnails.
+        // Applied only to the large primary view (uIsPrimary == 1.0) when CAS is enabled
+        // (uCasEnabled == 1.0). Thumbnails always use a plain texture lookup.
+        // 5 texture samples for primary+CAS, 1 sample otherwise.
         // uTexelStep is set once at program creation to (1/2560, 1/1920).
         private const val FRAG_SRC = """
 #extension GL_OES_EGL_image_external : require
@@ -203,10 +223,11 @@ precision mediump float;
 uniform samplerExternalOES uSampler;
 uniform vec2 uTexelStep;
 uniform float uIsPrimary;
+uniform float uCasEnabled;
 varying vec2 vTexCoord;
 void main() {
     vec4 col = texture2D(uSampler, vTexCoord);
-    if (uIsPrimary > 0.5) {
+    if (uIsPrimary > 0.5 && uCasEnabled > 0.5) {
         vec3 c = col.rgb;
         vec3 n = texture2D(uSampler, vTexCoord + vec2(0.0,  uTexelStep.y)).rgb;
         vec3 s = texture2D(uSampler, vTexCoord - vec2(0.0,  uTexelStep.y)).rgb;
