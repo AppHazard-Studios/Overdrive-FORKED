@@ -422,6 +422,23 @@
 
                 </com.google.android.material.button.MaterialButtonToggleGroup>
 
+                <!-- Shown when H.265 hardware encoder is unavailable -->
+                <TextView
+                    android:id="@+id/tvH265Warning"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:drawablePadding="6dp"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:paddingTop="7dp"
+                    android:paddingBottom="7dp"
+                    android:text="H.265: software encoding only — higher CPU load"
+                    android:textColor="#FFF59E0B"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_warning_pill"
+                    android:visibility="gone" />
+
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
