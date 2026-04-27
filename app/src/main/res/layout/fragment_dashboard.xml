@@ -43,7 +43,7 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:padding="12dp">
 
                     <!-- Header -->
                     <LinearLayout
@@ -106,7 +106,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="--"
                                 android:textColor="@color/text_primary"
-                                android:textSize="34sp"
+                                android:textSize="28sp"
                                 android:fontFamily="monospace"
                                 android:fontWeight="700" />
 
@@ -116,8 +116,8 @@
                                 android:layout_height="wrap_content"
                                 android:text=" GB"
                                 android:textColor="@color/text_muted"
-                                android:textSize="15sp"
-                                android:layout_marginBottom="5dp" />
+                                android:textSize="13sp"
+                                android:layout_marginBottom="4dp" />
 
                         </LinearLayout>
 
@@ -195,7 +195,7 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:padding="12dp">
 
                     <!-- Header -->
                     <LinearLayout
@@ -252,7 +252,7 @@
                             android:layout_height="wrap_content"
                             android:text="--"
                             android:textColor="@color/text_primary"
-                            android:textSize="40sp"
+                            android:textSize="28sp"
                             android:fontFamily="monospace"
                             android:fontWeight="700" />
 
@@ -320,7 +320,7 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:padding="12dp">
 
                     <!-- Header -->
                     <LinearLayout
@@ -354,7 +354,7 @@
                             android:layout_height="wrap_content"
                             android:text="--/5"
                             android:textColor="@color/brand_primary"
-                            android:textSize="12sp"
+                            android:textSize="14sp"
                             android:fontFamily="monospace"
                             android:fontWeight="700" />
 
@@ -398,7 +398,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="--%"
                                 android:textColor="@color/text_primary"
-                                android:textSize="12sp"
+                                android:textSize="14sp"
                                 android:fontFamily="monospace"
                                 android:gravity="end" />
 
@@ -442,7 +442,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="--%"
                                 android:textColor="@color/text_primary"
-                                android:textSize="12sp"
+                                android:textSize="14sp"
                                 android:fontFamily="monospace"
                                 android:gravity="end" />
 
@@ -486,7 +486,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="--%"
                                 android:textColor="@color/text_primary"
-                                android:textSize="12sp"
+                                android:textSize="14sp"
                                 android:fontFamily="monospace"
                                 android:gravity="end" />
 
@@ -562,7 +562,7 @@
                     android:layout_height="0dp"
                     android:layout_weight="1"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:padding="12dp">
 
                     <!-- Header -->
                     <LinearLayout
@@ -625,7 +625,7 @@
                                 android:layout_height="wrap_content"
                                 android:text="--"
                                 android:textColor="@color/status_success"
-                                android:textSize="34sp"
+                                android:textSize="28sp"
                                 android:fontFamily="monospace"
                                 android:fontWeight="700" />
 
@@ -634,8 +634,8 @@
                                 android:layout_height="wrap_content"
                                 android:text=" V"
                                 android:textColor="@color/text_muted"
-                                android:textSize="15sp"
-                                android:layout_marginBottom="5dp" />
+                                android:textSize="13sp"
+                                android:layout_marginBottom="4dp" />
 
                         </LinearLayout>
 
@@ -666,7 +666,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="--%"
                                     android:textColor="@color/status_success"
-                                    android:textSize="20sp"
+                                    android:textSize="18sp"
                                     android:fontFamily="monospace"
                                     android:fontWeight="600" />
 
@@ -694,7 +694,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="-- km"
                                     android:textColor="@color/text_primary"
-                                    android:textSize="20sp"
+                                    android:textSize="18sp"
                                     android:fontFamily="monospace"
                                     android:fontWeight="600" />
 

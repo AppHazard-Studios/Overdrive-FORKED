@@ -9,47 +9,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <style>
-        /* ─── Summary Strip ─────────────────────────────────────── */
-        .summary-strip {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .sum-tile {
-            flex: 1;
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 12px 6px;
-            text-align: center;
-            transition: border-color 0.3s;
-        }
-
-        .sum-val {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--text-primary);
-            line-height: 1;
-            margin-bottom: 4px;
-        }
-
-        .sum-lbl {
-            font-size: 10px;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .sum-tile.volt-ok  { border-color: rgba(34, 197, 94, 0.4); }
-        .sum-tile.volt-ok  .sum-val { color: #22c55e; }
-        .sum-tile.volt-warn { border-color: rgba(245, 158, 11, 0.4); }
-        .sum-tile.volt-warn .sum-val { color: #f59e0b; }
-        .sum-tile.volt-crit { border-color: rgba(239, 68, 68, 0.4); }
-        .sum-tile.volt-crit .sum-val { color: #ef4444; }
-
         /* ─── Accordion ─────────────────────────────────────────── */
         .accordion-section {
             margin-bottom: 12px;
@@ -126,13 +85,9 @@
         /* ─── Metric Cards ───────────────────────────────────────── */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 16px;
             margin-bottom: 16px;
-        }
-
-        @media (max-width: 900px) {
-            .metrics-grid { grid-template-columns: repeat(3, 1fr); }
         }
 
         .metric-card {
@@ -501,7 +456,6 @@
             .metric-value { font-size: 28px; }
             .memory-breakdown { grid-template-columns: 1fr; }
             .soc-stats-row { justify-content: space-between; }
-            .sum-val { font-size: 17px; }
         }
     </style>
 </head>
@@ -736,26 +690,6 @@
 
             <div class="page-body">
 
-                <!-- ── Summary Strip ──────────────────────────────── -->
-                <div class="summary-strip">
-                    <div class="sum-tile" id="sumTileCpu">
-                        <div class="sum-val" id="sumCpu">--</div>
-                        <div class="sum-lbl">CPU</div>
-                    </div>
-                    <div class="sum-tile" id="sumTileGpu">
-                        <div class="sum-val" id="sumGpu">--</div>
-                        <div class="sum-lbl">GPU</div>
-                    </div>
-                    <div class="sum-tile" id="sumTile12v">
-                        <div class="sum-val" id="sum12v">--</div>
-                        <div class="sum-lbl">12V</div>
-                    </div>
-                    <div class="sum-tile" id="sumTileSoc">
-                        <div class="sum-val" id="sumSoc">--</div>
-                        <div class="sum-lbl">SOC</div>
-                    </div>
-                </div>
-
                 <!-- ── Quick Stats Grid ───────────────────────────── -->
                 <div class="metrics-grid">
                     <!-- CPU Card -->
@@ -899,6 +833,39 @@
                             <div class="stat-item">
                                 <span class="stat-label">Status</span>
                                 <span class="stat-value" id="evChargingStatus">--</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 12V Battery Card -->
+                    <div class="metric-card" id="batt12vCard">
+                        <div class="metric-header">
+                            <div class="metric-title">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="6" y="7" width="12" height="10" rx="1"/>
+                                    <path d="M6 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2"/>
+                                    <path d="M18 10h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2"/>
+                                    <line x1="12" y1="10" x2="12" y2="14"/>
+                                </svg>
+                                12V Battery
+                            </div>
+                            <span class="gpu-status-badge" id="volt12Badge" style="display:none;"></span>
+                        </div>
+                        <div class="metric-value"><span id="volt12vCurrent">--</span><span class="unit">V</span></div>
+                        <div class="metric-subtitle" id="volt12Status">Auxiliary battery</div>
+                        <div class="metric-bar"><div class="metric-bar-fill" id="volt12Bar" style="width:0%"></div></div>
+                        <div class="stats-row">
+                            <div class="stat-item">
+                                <span class="stat-label">Min (24h)</span>
+                                <span class="stat-value" id="volt12vMin">-- V</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Max (24h)</span>
+                                <span class="stat-value" id="volt12vMax">-- V</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Avg (24h)</span>
+                                <span class="stat-value" id="volt12vAvg">-- V</span>
                             </div>
                         </div>
                     </div>
