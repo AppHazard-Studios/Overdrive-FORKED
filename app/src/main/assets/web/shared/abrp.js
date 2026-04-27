@@ -10,6 +10,7 @@ const ABRP = {
         this.loadConfig();
         this.loadStatus();
         this.startAutoRefresh();
+        this.setupVisibilityHandler();
     },
 
     async loadConfig() {
@@ -139,6 +140,25 @@ const ABRP = {
 
     startAutoRefresh() {
         this.refreshInterval = setInterval(() => this.loadStatus(), 5000);
+    },
+
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+    },
+
+    setupVisibilityHandler() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.stopAutoRefresh();
+            } else {
+                this.loadStatus();
+                this.startAutoRefresh();
+            }
+        });
+        window.addEventListener('beforeunload', () => this.stopAutoRefresh());
     },
 
     updateTelemetryTable(t) {

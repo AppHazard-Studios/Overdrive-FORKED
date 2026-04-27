@@ -16,6 +16,7 @@ BYD.core = {
     init() {
         this.startStatusPolling();
         this.startClock();
+        this.setupVisibilityHandler();
         console.log('[Core] Initialized');
     },
 
@@ -37,12 +38,27 @@ BYD.core = {
         setInterval(update, 1000);
     },
 
-    /**
-     * Start status polling
-     */
     startStatusPolling() {
         this.refreshStatus();
         this.pollInterval = setInterval(() => this.refreshStatus(), 5000);
+    },
+
+    stopStatusPolling() {
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+    },
+
+    setupVisibilityHandler() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.stopStatusPolling();
+            } else {
+                this.startStatusPolling();
+            }
+        });
+        window.addEventListener('beforeunload', () => this.stopStatusPolling());
     },
 
     /**
