@@ -219,6 +219,43 @@ class SentryConfigViewModel : ViewModel() {
     fun setSensitivity(sensitivity: Int) {
         updateLocalConfig { it.copy(sensitivity = sensitivity.coerceIn(1, 5)) }
     }
+
+    fun setEnvironmentPreset(preset: String) {
+        updateLocalConfig { it.copy(environmentPreset = preset) }
+    }
+
+    fun setDetectionZone(zone: String) {
+        updateLocalConfig { it.copy(detectionZone = zone) }
+    }
+
+    fun setLoiteringTime(seconds: Int) {
+        updateLocalConfig { it.copy(loiteringTimeSeconds = seconds.coerceIn(1, 10)) }
+    }
+
+    fun setSensitivityLevel(level: Int) {
+        updateLocalConfig { it.copy(sensitivityLevel = level.coerceIn(1, 5)) }
+    }
+
+    fun setShadowFilterMode(mode: Int) {
+        updateLocalConfig { it.copy(shadowFilterMode = mode.coerceIn(0, 3)) }
+    }
+
+    fun setCamerasEnabled(front: Boolean, right: Boolean, left: Boolean, rear: Boolean) {
+        updateLocalConfig { it.copy(
+            cameraFrontEnabled = front,
+            cameraRightEnabled = right,
+            cameraLeftEnabled = left,
+            cameraRearEnabled = rear
+        ) }
+    }
+
+    fun setMotionHeatmap(enabled: Boolean) {
+        updateLocalConfig { it.copy(motionHeatmapEnabled = enabled) }
+    }
+
+    fun setFilterDebugLog(enabled: Boolean) {
+        updateLocalConfig { it.copy(filterDebugLogEnabled = enabled) }
+    }
     
     /**
      * Update local config only - does NOT send to daemon.
@@ -248,6 +285,18 @@ class SentryConfigViewModel : ViewModel() {
                 put("schedulingEnabled", currentConfig.scheduleEnabled)
                 put("bitrate", currentConfig.bitrate)
                 put("codec", currentConfig.codec)
+                // V2 pipeline settings
+                put("environmentPreset", currentConfig.environmentPreset)
+                put("detectionZone", currentConfig.detectionZone)
+                put("loiteringTimeSeconds", currentConfig.loiteringTimeSeconds)
+                put("sensitivityLevel", currentConfig.sensitivityLevel)
+                put("shadowFilterMode", currentConfig.shadowFilterMode)
+                put("cameraFront", currentConfig.cameraFrontEnabled)
+                put("cameraRight", currentConfig.cameraRightEnabled)
+                put("cameraLeft", currentConfig.cameraLeftEnabled)
+                put("cameraRear", currentConfig.cameraRearEnabled)
+                put("motionHeatmap", currentConfig.motionHeatmapEnabled)
+                put("filterDebugLog", currentConfig.filterDebugLogEnabled)
             }
             
             val response = sendCommand(JSONObject().apply {
@@ -484,7 +533,19 @@ class SentryConfigViewModel : ViewModel() {
             postEventBufferSeconds = json.optInt("postEventBufferSeconds", 10),
             scheduleEnabled = json.optBoolean("schedulingEnabled", false),
             bitrate = json.optString("bitrate", "MEDIUM"),
-            codec = json.optString("codec", "H264")
+            codec = json.optString("codec", "H264"),
+            // V2 pipeline settings
+            environmentPreset = json.optString("environmentPreset", "outdoor"),
+            detectionZone = json.optString("detectionZone", "normal"),
+            loiteringTimeSeconds = json.optInt("loiteringTimeSeconds", 3),
+            sensitivityLevel = json.optInt("sensitivityLevel", 3),
+            shadowFilterMode = json.optInt("shadowFilterMode", 2),
+            cameraFrontEnabled = json.optBoolean("cameraFront", true),
+            cameraRightEnabled = json.optBoolean("cameraRight", true),
+            cameraLeftEnabled = json.optBoolean("cameraLeft", true),
+            cameraRearEnabled = json.optBoolean("cameraRear", true),
+            motionHeatmapEnabled = json.optBoolean("motionHeatmap", false),
+            filterDebugLogEnabled = json.optBoolean("filterDebugLog", false)
         )
     }
     
@@ -517,7 +578,19 @@ class SentryConfigViewModel : ViewModel() {
         val postEventBufferSeconds: Int = 10,
         val scheduleEnabled: Boolean = false,
         val bitrate: String = "MEDIUM",
-        val codec: String = "H264"
+        val codec: String = "H264",
+        // V2 pipeline settings
+        val environmentPreset: String = "outdoor",       // outdoor, garage, street
+        val detectionZone: String = "normal",            // close, normal, extended
+        val loiteringTimeSeconds: Int = 3,               // 1-10
+        val sensitivityLevel: Int = 3,                   // 1-5 (v2 scale)
+        val shadowFilterMode: Int = 2,                   // 0=OFF, 1=LIGHT, 2=NORMAL, 3=AGGRESSIVE
+        val cameraFrontEnabled: Boolean = true,
+        val cameraRightEnabled: Boolean = true,
+        val cameraLeftEnabled: Boolean = true,
+        val cameraRearEnabled: Boolean = true,
+        val motionHeatmapEnabled: Boolean = false,
+        val filterDebugLogEnabled: Boolean = false
     )
     
     data class SentryStatus(
