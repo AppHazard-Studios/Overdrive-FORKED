@@ -31,14 +31,9 @@
 
     <fragment
         android:id="@+id/sentryConfigFragment"
-        android:name="com.overdrive.app.ui.fragment.WebViewFragment"
-        android:label="Surveillance"
-        tools:layout="@layout/fragment_webview">
-        <argument
-            android:name="page_path"
-            app:argType="string"
-            android:defaultValue="/surveillance" />
-    </fragment>
+        android:name="com.overdrive.app.ui.fragment.SentryConfigFragment"
+        android:label="Surveillance Settings"
+        tools:layout="@layout/fragment_sentry_config" />
 
     <fragment
         android:id="@+id/eventsFragment"
