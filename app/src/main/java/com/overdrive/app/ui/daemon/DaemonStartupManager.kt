@@ -56,26 +56,24 @@ class DaemonStartupManager(
 
     fun initializeOnAppLaunch() {
         log.info(TAG, "=== Initializing daemon startup on app launch ===")
-        log.info(TAG, "Waiting 45 seconds before starting daemons (system stabilization)...")
 
         userStoppedDaemons.clear()
 
         enableAccessibilityKeepAlive()
 
-        handler.postDelayed({ startCoreDaemons() }, 45000)
-        handler.postDelayed({ startDaemonHealthCheck() }, 90000)
+        handler.postDelayed({ startCoreDaemons() }, 3000)
+        handler.postDelayed({ startDaemonHealthCheck() }, 20000)
     }
 
     private fun initializeOnBoot() {
         log.info(TAG, "=== Initializing daemon startup on boot ===")
-        log.info(TAG, "Waiting 45 seconds before starting daemons (system stabilization)...")
 
         userStoppedDaemons.clear()
 
         enableAccessibilityKeepAlive()
 
-        handler.postDelayed({ startCoreDaemonsViaAdb() }, 45000)
-        handler.postDelayed({ startDaemonHealthCheck() }, 90000)
+        handler.postDelayed({ startCoreDaemonsViaAdb() }, 3000)
+        handler.postDelayed({ startDaemonHealthCheck() }, 20000)
     }
 
     fun checkAllDaemonStatuses() {

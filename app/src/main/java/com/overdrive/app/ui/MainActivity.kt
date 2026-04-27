@@ -107,9 +107,8 @@ class MainActivity : AppCompatActivity() {
         // Start Location Sidecar service (establishes ADB connection)
         startLocationSidecarService()
         
-        // Initialize daemons after a short delay to allow ADB connection
+        // Sync device ID then start daemons — minimal delay for ADB connection
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            // Sync device ID to file synchronously before daemon startup
             Thread {
                 try {
                     val synced = com.overdrive.app.util.DeviceIdGenerator.syncDeviceIdToFileSync(this)
@@ -117,18 +116,16 @@ class MainActivity : AppCompatActivity() {
                 } catch (e: Exception) {
                     android.util.Log.e("MainActivity", "Device ID sync error: ${e.message}")
                 }
-                
-                // Start daemons on main thread
+
                 runOnUiThread {
                     daemonStartupManager.initializeOnAppLaunch()
-                    
-                    // Check daemon statuses after startup
+
                     android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
                         daemonStartupManager.checkAllDaemonStatuses()
-                    }, 3000)
+                    }, 2000)
                 }
             }.start()
-        }, 1000)
+        }, 500)
         
         // Handle Location start intent (from SentryDaemon restart)
         handleLocationStartIntent(intent)
