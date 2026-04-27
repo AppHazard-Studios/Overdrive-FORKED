@@ -133,9 +133,6 @@ class MainActivity : AppCompatActivity() {
         // Handle Location start intent (from SentryDaemon restart)
         handleLocationStartIntent(intent)
         
-        // Check traffic monitor status early so drawer shows correct state
-        checkTrafficMonitorStatus()
-        
         // Check for app updates (delayed to not block startup)
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             // Clean up any leftover update APK from previous install
@@ -472,9 +469,8 @@ class MainActivity : AppCompatActivity() {
                 R.id.dashboardFragment, R.id.daemonsFragment,
                 R.id.recordingFragment, R.id.adbConsoleFragment,
                 R.id.eventsFragment, R.id.sentryConfigFragment,
-                R.id.telegramSettingsFragment, R.id.abrpSettingsFragment,
-                R.id.mqttFragment, R.id.tripsFragment, R.id.performanceFragment,
-                R.id.logsFragment, R.id.remoteAccessFragment
+                R.id.abrpSettingsFragment, R.id.performanceFragment,
+                R.id.logsFragment
             ),
             drawerLayout
         )
@@ -491,11 +487,6 @@ class MainActivity : AppCompatActivity() {
                 R.id.nav_check_update -> {
                     drawerLayout.closeDrawers()
                     checkForAppUpdateManual()
-                    true
-                }
-                R.id.nav_traffic_monitor -> {
-                    drawerLayout.closeDrawers()
-                    onTrafficMonitorClicked()
                     true
                 }
                 R.id.nav_reconfigure_camera -> {
@@ -515,7 +506,6 @@ class MainActivity : AppCompatActivity() {
         // Check traffic monitor status when drawer opens
         drawerLayout.addDrawerListener(object : DrawerLayout.DrawerListener {
             override fun onDrawerOpened(drawerView: View) {
-                checkTrafficMonitorStatus()
                 updateCameraProbeMenuItem()
             }
             override fun onDrawerSlide(drawerView: View, slideOffset: Float) {}
@@ -542,29 +532,10 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun observeViewModels() {
-        // Observe tunnel URL from cloudflared controller — keep mainViewModel in sync
-        daemonsViewModel.cloudflaredController.tunnelUrl.observe(this) { url ->
-            mainViewModel.setTunnelUrl(url)
-        }
-
-        // Zrok URL takes precedence if available
-        daemonsViewModel.zrokController.tunnelUrl.observe(this) { url ->
-            if (!url.isNullOrEmpty()) {
-                mainViewModel.setTunnelUrl(url)
-            }
-        }
-
-        // Update the status dot in the toolbar
+        // Update the status dot in the toolbar based on camera daemon state
         daemonsViewModel.daemonStates.observe(this) { states ->
-            val cloudflaredState = states[DaemonType.CLOUDFLARED_TUNNEL]
-            val zrokState = states[DaemonType.ZROK_TUNNEL]
-            val tunnelStatus = when {
-                zrokState?.status == DaemonStatus.RUNNING -> DaemonStatus.RUNNING
-                cloudflaredState?.status == DaemonStatus.RUNNING -> DaemonStatus.RUNNING
-                zrokState?.status == DaemonStatus.STARTING || cloudflaredState?.status == DaemonStatus.STARTING -> DaemonStatus.STARTING
-                else -> DaemonStatus.STOPPED
-            }
-            updateStatusIndicator(tunnelStatus)
+            val cameraState = states[DaemonType.CAMERA_DAEMON]
+            updateStatusIndicator(cameraState?.status)
         }
     }
     

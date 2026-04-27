@@ -1,11 +1,9 @@
 package com.overdrive.app.ui.fragment
 
-import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -41,9 +39,6 @@ class DaemonsFragment : Fragment() {
         initViews(view)
         setupRecyclerView()
         observeViewModel()
-        
-        // Check Zrok token status on view creation
-        checkZrokTokenStatus()
     }
     
     private fun initViews(view: View) {
@@ -73,20 +68,6 @@ class DaemonsFragment : Fragment() {
         }
     }
     
-    /**
-     * Check if Zrok token is configured and update state accordingly.
-     */
-    private fun checkZrokTokenStatus() {
-        daemonsViewModel.zrokController.hasEnableToken { hasToken ->
-            activity?.runOnUiThread {
-                if (!hasToken) {
-                    // Update Zrok state to show configuration needed
-                    daemonsViewModel.updateZrokNeedsConfig("No token configured. Tap to set up.")
-                }
-            }
-        }
-    }
-    
     private fun onDaemonToggled(type: DaemonType, enabled: Boolean) {
         // Save preference for optional daemons (so they auto-start on next app launch if enabled)
         daemonsViewModel.daemonStartupManager?.onDaemonToggled(type, enabled)
@@ -99,146 +80,7 @@ class DaemonsFragment : Fragment() {
     }
     
     private fun onDaemonConfigureClicked(type: DaemonType) {
-        when (type) {
-            DaemonType.ZROK_TUNNEL -> showZrokTokenDialog()
-            else -> {
-                // Other daemons don't need configuration yet
-                Toast.makeText(context, "No configuration needed for ${type.displayName}", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-    
-    /**
-     * Show dialog to configure Zrok enable token.
-     */
-    private fun showZrokTokenDialog() {
-        val context = context ?: return
-        
-        // First get current token to show in dialog
-        daemonsViewModel.zrokController.getEnableToken { currentToken ->
-            activity?.runOnUiThread {
-                val dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_zrok_token, null)
-                val editToken = dialogView.findViewById<EditText>(R.id.editZrokToken)
-                
-                // Pre-fill with current token if exists
-                currentToken?.let { editToken.setText(it) }
-                
-                val dialog = AlertDialog.Builder(context)
-                    .setTitle("🌐 Zrok Tunnel Token")
-                    .setMessage("Enter your Zrok enable token.\nGet one at: zrok.io")
-                    .setView(dialogView)
-                    .setPositiveButton("Save") { _, _ ->
-                        val token = editToken.text.toString().trim()
-                        if (token.isNotEmpty()) {
-                            saveZrokToken(token)
-                        } else {
-                            Toast.makeText(context, "Token cannot be empty", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .setNeutralButton("Delete") { _, _ ->
-                        deleteZrokToken()
-                    }
-                    .create()
-                
-                // Wire up the Reset Environment button
-                dialogView.findViewById<View>(R.id.btnResetZrokEnvironment)?.setOnClickListener {
-                    dialog.dismiss()
-                    confirmResetZrokEnvironment()
-                }
-                
-                dialog.show()
-            }
-        }
-    }
-    
-    /**
-     * Show confirmation dialog before resetting zrok environment.
-     */
-    private fun confirmResetZrokEnvironment() {
-        val context = context ?: return
-        
-        AlertDialog.Builder(context)
-            .setTitle("⚠️ Reset Zrok Environment")
-            .setMessage(
-                "This will:\n" +
-                "• Stop the zrok tunnel if running\n" +
-                "• Remove the zrok environment from this device\n" +
-                "• Delete the saved token\n\n" +
-                "You will need to re-enter your token and re-enable. This uses one of your 5 device slots on zrok.io.\n\n" +
-                "Are you sure?"
-            )
-            .setPositiveButton("Reset") { _, _ ->
-                resetZrokEnvironment()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
-    }
-    
-    /**
-     * Reset zrok environment: stop tunnel, disable environment, delete token.
-     */
-    private fun resetZrokEnvironment() {
-        val context = context ?: return
-        Toast.makeText(context, "Resetting zrok environment...", Toast.LENGTH_SHORT).show()
-        
-        // First stop the tunnel if running
-        daemonsViewModel.stopDaemon(DaemonType.ZROK_TUNNEL)
-        
-        // Then disable the environment (removes environment.json and reserved tokens)
-        daemonsViewModel.zrokController.disableEnvironment(object : com.overdrive.app.ui.daemon.DaemonCallback {
-            override fun onStatusChanged(status: com.overdrive.app.ui.model.DaemonStatus, message: String) {
-                // Environment disabled, now delete the enable token
-                daemonsViewModel.zrokController.deleteEnableToken { success ->
-                    activity?.runOnUiThread {
-                        if (success) {
-                            Toast.makeText(context, "✅ Zrok environment reset. Enter a new token to set up again.", Toast.LENGTH_LONG).show()
-                        } else {
-                            Toast.makeText(context, "✅ Environment reset (token file may need manual cleanup)", Toast.LENGTH_LONG).show()
-                        }
-                        daemonsViewModel.updateZrokNeedsConfig("No token configured. Tap to set up.")
-                    }
-                }
-            }
-            
-            override fun onError(error: String) {
-                // Even if disable fails, still try to delete the token
-                daemonsViewModel.zrokController.deleteEnableToken { _ ->
-                    activity?.runOnUiThread {
-                        Toast.makeText(context, "Environment reset (with warnings: $error)", Toast.LENGTH_LONG).show()
-                        daemonsViewModel.updateZrokNeedsConfig("No token configured. Tap to set up.")
-                    }
-                }
-            }
-        })
-    }
-    
-    private fun saveZrokToken(token: String) {
-        daemonsViewModel.zrokController.saveEnableToken(token) { success ->
-            activity?.runOnUiThread {
-                if (success) {
-                    Toast.makeText(context, "✅ Token saved", Toast.LENGTH_SHORT).show()
-                    // Refresh Zrok status
-                    daemonsViewModel.refreshDaemonStatus(DaemonType.ZROK_TUNNEL)
-                } else {
-                    Toast.makeText(context, "❌ Failed to save token", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-    
-    private fun deleteZrokToken() {
-        daemonsViewModel.zrokController.deleteEnableToken { success ->
-            activity?.runOnUiThread {
-                if (success) {
-                    Toast.makeText(context, "Token deleted", Toast.LENGTH_SHORT).show()
-                    // Update state to show configuration needed
-                    daemonsViewModel.updateZrokNeedsConfig("No token configured. Tap to set up.")
-                } else {
-                    Toast.makeText(context, "❌ Failed to delete token", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
+        Toast.makeText(context, "No configuration needed for ${type.displayName}", Toast.LENGTH_SHORT).show()
     }
     
     // ==================== Log Download (Debug Only) ====================

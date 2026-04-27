@@ -89,12 +89,6 @@
         app:popExitAnim="@anim/nav_slide_out_right" />
 
     <fragment
-        android:id="@+id/telegramSettingsFragment"
-        android:name="com.overdrive.app.ui.fragment.TelegramSettingsFragment"
-        android:label="Telegram"
-        tools:layout="@layout/fragment_telegram_settings" />
-
-    <fragment
         android:id="@+id/abrpSettingsFragment"
         android:name="com.overdrive.app.ui.fragment.WebViewFragment"
         android:label="ABRP"
@@ -103,28 +97,6 @@
             android:name="page_path"
             app:argType="string"
             android:defaultValue="/abrp" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/mqttFragment"
-        android:name="com.overdrive.app.ui.fragment.WebViewFragment"
-        android:label="MQTT"
-        tools:layout="@layout/fragment_webview">
-        <argument
-            android:name="page_path"
-            app:argType="string"
-            android:defaultValue="/mqtt" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/tripsFragment"
-        android:name="com.overdrive.app.ui.fragment.WebViewFragment"
-        android:label="Trips"
-        tools:layout="@layout/fragment_webview">
-        <argument
-            android:name="page_path"
-            app:argType="string"
-            android:defaultValue="/trips" />
     </fragment>
 
     <fragment
@@ -144,10 +116,5 @@
         android:label="Logs"
         tools:layout="@layout/fragment_logs" />
 
-    <fragment
-        android:id="@+id/remoteAccessFragment"
-        android:name="com.overdrive.app.ui.fragment.RemoteAccessFragment"
-        android:label="Remote Access"
-        tools:layout="@layout/fragment_remote_access" />
 
 </navigation>
