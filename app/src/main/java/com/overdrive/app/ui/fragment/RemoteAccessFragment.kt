@@ -3,6 +3,8 @@ package com.overdrive.app.ui.fragment
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -20,7 +22,10 @@ import com.overdrive.app.ui.model.AccessMode
 import com.overdrive.app.ui.viewmodel.DaemonsViewModel
 import com.overdrive.app.ui.viewmodel.MainViewModel
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.switchmaterial.SwitchMaterial
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 
 class RemoteAccessFragment : Fragment() {
 
@@ -35,6 +40,8 @@ class RemoteAccessFragment : Fragment() {
     private lateinit var btnToggleToken: ImageView
     private lateinit var btnCopyToken: ImageView
     private lateinit var btnRegenerateToken: MaterialButton
+    private lateinit var cardQr: MaterialCardView
+    private lateinit var ivQrCode: ImageView
 
     private var isTokenVisible = false
     private var isUpdatingSwitch = false
@@ -63,6 +70,8 @@ class RemoteAccessFragment : Fragment() {
         btnToggleToken      = view.findViewById(R.id.btnToggleToken)
         btnCopyToken        = view.findViewById(R.id.btnCopyToken)
         btnRegenerateToken  = view.findViewById(R.id.btnRegenerateToken)
+        cardQr              = view.findViewById(R.id.cardQr)
+        ivQrCode            = view.findViewById(R.id.ivQrCode)
     }
 
     private fun setupClickListeners() {
@@ -93,9 +102,11 @@ class RemoteAccessFragment : Fragment() {
             if (url.isNullOrEmpty()) {
                 tvCurrentUrl.text = "No tunnel running"
                 urlStatusDot.setBackgroundResource(R.drawable.status_dot_offline)
+                cardQr.visibility = View.GONE
             } else {
                 tvCurrentUrl.text = url
                 urlStatusDot.setBackgroundResource(R.drawable.status_dot_online)
+                showQrCode(url)
             }
         }
         mainViewModel.accessMode.observe(viewLifecycleOwner) { mode ->
@@ -172,5 +183,24 @@ class RemoteAccessFragment : Fragment() {
             }
         }.start()
         loadAuthState()
+    }
+
+    private fun showQrCode(content: String) {
+        Thread {
+            try {
+                val size = 512
+                val bits = QRCodeWriter().encode(content, BarcodeFormat.QR_CODE, size, size)
+                val bmp = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+                for (x in 0 until size) {
+                    for (y in 0 until size) {
+                        bmp.setPixel(x, y, if (bits[x, y]) Color.BLACK else Color.WHITE)
+                    }
+                }
+                activity?.runOnUiThread {
+                    ivQrCode.setImageBitmap(bmp)
+                    cardQr.visibility = View.VISIBLE
+                }
+            } catch (_: Exception) {}
+        }.start()
     }
 }

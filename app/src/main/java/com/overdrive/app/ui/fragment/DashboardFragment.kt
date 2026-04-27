@@ -6,7 +6,7 @@ import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
@@ -23,42 +23,57 @@ import com.google.android.material.card.MaterialCardView
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class DashboardFragment : Fragment() {
 
     private val daemonsViewModel: DaemonsViewModel by activityViewModels()
     private val recordingViewModel: RecordingViewModel by activityViewModels()
 
-    // Quick stats strip
-    private lateinit var tileStatVolt: MaterialCardView
-    private lateinit var tvStatCpu: TextView
-    private lateinit var tvStatGpu: TextView
-    private lateinit var tvStatMem: TextView
-    private lateinit var tvStatVolt: TextView
-    private lateinit var tvStatSoc: TextView
-
-    // Surveillance card
-    private lateinit var tvSurvPill: TextView
-    private lateinit var tvSurvEvents: TextView
-    private lateinit var tvSurvLastDetection: TextView
-
     // Recording card
+    private lateinit var cardRecording: MaterialCardView
     private lateinit var tvRecPill: TextView
-    private lateinit var tvRecStorage: TextView
-    private lateinit var viewRecStorageBar: View
-    private lateinit var tvRecStorageDetail: TextView
+    private lateinit var tvRecValueNum: TextView
+    private lateinit var tvRecValueUnit: TextView
+    private lateinit var frameRecBar: FrameLayout
+    private lateinit var viewRecBar: View
+    private lateinit var tvRecDetail: TextView
 
-    // Trips card
-    private lateinit var cardTrips: MaterialCardView
-    private lateinit var tvTripsCount: TextView
-    private lateinit var tvTripsDistance: TextView
-    private lateinit var tvTripsScore: TextView
+    // Sentry card
+    private lateinit var cardSurveillance: MaterialCardView
+    private lateinit var viewSentryAccent: View
+    private lateinit var tvSurvPill: TextView
+    private lateinit var tvSurvEventsNum: TextView
+    private lateinit var tvSurvEventsSub: TextView
+    private lateinit var tvSurvLastDet: TextView
 
-    // Daemon health card
+    // System card
     private lateinit var cardDaemonHealth: MaterialCardView
-    private lateinit var layoutDaemonDots: LinearLayout
     private lateinit var tvDaemonCount: TextView
-    private lateinit var tvDaemonError: TextView
+    private lateinit var tvCpuVal: TextView
+    private lateinit var frameCpuBar: FrameLayout
+    private lateinit var viewCpuBar: View
+    private lateinit var tvGpuVal: TextView
+    private lateinit var frameGpuBar: FrameLayout
+    private lateinit var viewGpuBar: View
+    private lateinit var tvMemVal: TextView
+    private lateinit var frameMemBar: FrameLayout
+    private lateinit var viewMemBar: View
+    private lateinit var layoutDaemonDots: LinearLayout
+
+    // Vehicle card
+    private lateinit var cardVehicle: MaterialCardView
+    private lateinit var viewVehicleAccent: View
+    private lateinit var tvThermalBadge: TextView
+    private lateinit var tvVehicleVoltNum: TextView
+    private lateinit var tvStatSoc: TextView
+    private lateinit var tvStatRange: TextView
+    private lateinit var layoutTodayTrip: LinearLayout
+    private lateinit var tvTodayScore: TextView
+    private lateinit var tvTodayDistance: TextView
+
+    private val daemonDotViews = mutableMapOf<DaemonType, View>()
 
     private val handler = Handler(Looper.getMainLooper())
     private val refreshRunnable = object : Runnable {
@@ -97,39 +112,66 @@ class DashboardFragment : Fragment() {
         handler.removeCallbacks(refreshRunnable)
     }
 
-    // ── View init ──────────────────────────────────────────────────────────────
-
     private fun initViews(view: View) {
-        tileStatVolt        = view.findViewById(R.id.tileStatVolt)
-        tvStatCpu           = view.findViewById(R.id.tvStatCpu)
-        tvStatGpu           = view.findViewById(R.id.tvStatGpu)
-        tvStatMem           = view.findViewById(R.id.tvStatMem)
-        tvStatVolt          = view.findViewById(R.id.tvStatVolt)
-        tvStatSoc           = view.findViewById(R.id.tvStatSoc)
+        cardRecording      = view.findViewById(R.id.cardRecording)
+        tvRecPill          = view.findViewById(R.id.tvRecPill)
+        tvRecValueNum      = view.findViewById(R.id.tvRecValueNum)
+        tvRecValueUnit     = view.findViewById(R.id.tvRecValueUnit)
+        frameRecBar        = view.findViewById(R.id.frameRecBar)
+        viewRecBar         = view.findViewById(R.id.viewRecBar)
+        tvRecDetail        = view.findViewById(R.id.tvRecDetail)
 
-        tvSurvPill          = view.findViewById(R.id.tvSurvPill)
-        tvSurvEvents        = view.findViewById(R.id.tvSurvEvents)
-        tvSurvLastDetection = view.findViewById(R.id.tvSurvLastDetection)
+        cardSurveillance   = view.findViewById(R.id.cardSurveillance)
+        viewSentryAccent   = view.findViewById(R.id.viewSentryAccent)
+        tvSurvPill         = view.findViewById(R.id.tvSurvPill)
+        tvSurvEventsNum    = view.findViewById(R.id.tvSurvEventsNum)
+        tvSurvEventsSub    = view.findViewById(R.id.tvSurvEventsSub)
+        tvSurvLastDet      = view.findViewById(R.id.tvSurvLastDet)
 
-        tvRecPill           = view.findViewById(R.id.tvRecPill)
-        tvRecStorage        = view.findViewById(R.id.tvRecStorage)
-        viewRecStorageBar   = view.findViewById(R.id.viewRecStorageBar)
-        tvRecStorageDetail  = view.findViewById(R.id.tvRecStorageDetail)
+        cardDaemonHealth   = view.findViewById(R.id.cardDaemonHealth)
+        tvDaemonCount      = view.findViewById(R.id.tvDaemonCount)
+        tvCpuVal           = view.findViewById(R.id.tvCpuVal)
+        frameCpuBar        = view.findViewById(R.id.frameCpuBar)
+        viewCpuBar         = view.findViewById(R.id.viewCpuBar)
+        tvGpuVal           = view.findViewById(R.id.tvGpuVal)
+        frameGpuBar        = view.findViewById(R.id.frameGpuBar)
+        viewGpuBar         = view.findViewById(R.id.viewGpuBar)
+        tvMemVal           = view.findViewById(R.id.tvMemVal)
+        frameMemBar        = view.findViewById(R.id.frameMemBar)
+        viewMemBar         = view.findViewById(R.id.viewMemBar)
+        layoutDaemonDots   = view.findViewById(R.id.layoutDaemonDots)
 
-        cardTrips           = view.findViewById(R.id.cardTrips)
-        tvTripsCount        = view.findViewById(R.id.tvTripsCount)
-        tvTripsDistance     = view.findViewById(R.id.tvTripsDistance)
-        tvTripsScore        = view.findViewById(R.id.tvTripsScore)
-
-        cardDaemonHealth    = view.findViewById(R.id.cardDaemonHealth)
-        layoutDaemonDots    = view.findViewById(R.id.layoutDaemonDots)
-        tvDaemonCount       = view.findViewById(R.id.tvDaemonCount)
-        tvDaemonError       = view.findViewById(R.id.tvDaemonError)
+        cardVehicle        = view.findViewById(R.id.cardVehicle)
+        viewVehicleAccent  = view.findViewById(R.id.viewVehicleAccent)
+        tvThermalBadge     = view.findViewById(R.id.tvThermalBadge)
+        tvVehicleVoltNum   = view.findViewById(R.id.tvVehicleVoltNum)
+        tvStatSoc          = view.findViewById(R.id.tvStatSoc)
+        tvStatRange        = view.findViewById(R.id.tvStatRange)
+        layoutTodayTrip    = view.findViewById(R.id.layoutTodayTrip)
+        tvTodayScore       = view.findViewById(R.id.tvTodayScore)
+        tvTodayDistance    = view.findViewById(R.id.tvTodayDistance)
     }
 
-    // ── Daemon dot row (built once; dots updated by observer) ──────────────────
+    private fun setupClickListeners() {
+        val navOptions = NavOptions.Builder()
+            .setLaunchSingleTop(true)
+            .setPopUpTo(R.id.nav_graph, false)
+            .build()
+        cardRecording.setOnClickListener {
+            findNavController().navigate(R.id.recordingFragment, null, navOptions)
+        }
+        cardSurveillance.setOnClickListener {
+            findNavController().navigate(R.id.sentryConfigFragment, null, navOptions)
+        }
+        cardDaemonHealth.setOnClickListener {
+            findNavController().navigate(R.id.daemonsFragment, null, navOptions)
+        }
+        cardVehicle.setOnClickListener {
+            findNavController().navigate(R.id.performanceFragment, null, navOptions)
+        }
+    }
 
-    private val daemonDotViews = mutableMapOf<DaemonType, View>()
+    // ── Daemon dot row ─────────────────────────────────────────────────────────
 
     private fun buildDaemonDotRow() {
         layoutDaemonDots.removeAllViews()
@@ -163,31 +205,25 @@ class DashboardFragment : Fragment() {
         }
     }
 
-    // ── Click listeners ────────────────────────────────────────────────────────
-
-    private fun setupClickListeners() {
-        val navOptions = NavOptions.Builder()
-            .setLaunchSingleTop(true)
-            .setPopUpTo(R.id.nav_graph, false)
-            .build()
-
-        view?.findViewById<MaterialCardView>(R.id.cardSurveillance)?.setOnClickListener {
-            findNavController().navigate(R.id.sentryConfigFragment, null, navOptions)
-        }
-        view?.findViewById<MaterialCardView>(R.id.cardRecording)?.setOnClickListener {
-            findNavController().navigate(R.id.recordingFragment, null, navOptions)
-        }
-        cardDaemonHealth.setOnClickListener {
-            findNavController().navigate(R.id.daemonsFragment, null, navOptions)
-        }
-        cardTrips.setOnClickListener {
-            findNavController().navigate(R.id.tripsFragment, null, navOptions)
-        }
-    }
-
     // ── ViewModel observations ─────────────────────────────────────────────────
 
     private fun observeViewModels() {
+        recordingViewModel.isRecording.observe(viewLifecycleOwner) { isRec ->
+            tvRecPill.text = if (isRec) "● REC" else "IDLE"
+            tvRecPill.setTextColor(resources.getColor(
+                if (isRec) R.color.status_danger else R.color.text_muted, null
+            ))
+        }
+
+        recordingViewModel.storageInfo.observe(viewLifecycleOwner) { info ->
+            val (num, unit) = formatStorageSplit(info.availableBytes)
+            tvRecValueNum.text = num
+            tvRecValueUnit.text = unit
+            tvRecDetail.text = "${info.usedFormatted} used  ·  ${info.totalFormatted} total"
+            val pct = info.usagePercent.coerceIn(0, 100)
+            setBarWidth(frameRecBar, viewRecBar, pct)
+        }
+
         daemonsViewModel.daemonStates.observe(viewLifecycleOwner) { states ->
             val running = states.values.count { it.status == DaemonStatus.RUNNING }
             val total   = states.size
@@ -196,12 +232,11 @@ class DashboardFragment : Fragment() {
             tvDaemonCount.setTextColor(resources.getColor(
                 when {
                     running == total && total > 0 -> R.color.status_success
-                    running > 0 -> R.color.status_warning
-                    else -> R.color.status_danger
+                    running > 0                  -> R.color.status_warning
+                    else                         -> R.color.status_danger
                 }, null
             ))
 
-            // Update per-daemon status dots
             states.forEach { (type, state) ->
                 daemonDotViews[type]?.setBackgroundResource(
                     when (state.status) {
@@ -211,35 +246,6 @@ class DashboardFragment : Fragment() {
                         else                  -> R.drawable.status_dot_offline
                     }
                 )
-            }
-
-            val errorNames = states.entries
-                .filter { it.value.status == DaemonStatus.ERROR }
-                .joinToString(" · ") { it.key.displayName }
-            if (errorNames.isNotEmpty()) {
-                tvDaemonError.text = "Error: $errorNames"
-                tvDaemonError.visibility = View.VISIBLE
-            } else {
-                tvDaemonError.visibility = View.GONE
-            }
-        }
-
-        recordingViewModel.isRecording.observe(viewLifecycleOwner) { isRec ->
-            tvRecPill.text = if (isRec) "● REC" else "IDLE"
-            tvRecPill.setTextColor(resources.getColor(
-                if (isRec) R.color.status_danger else R.color.text_muted, null
-            ))
-        }
-
-        recordingViewModel.storageInfo.observe(viewLifecycleOwner) { info ->
-            tvRecStorage.text = "${info.availableFormatted} free"
-            tvRecStorageDetail.text = "${info.usedFormatted} used of ${info.totalFormatted}"
-            val percent = info.usagePercent.coerceIn(0, 100)
-            viewRecStorageBar.post {
-                val parent = viewRecStorageBar.parent as? ViewGroup ?: return@post
-                val params = viewRecStorageBar.layoutParams
-                params.width = (parent.width * percent / 100f).toInt().coerceAtLeast(0)
-                viewRecStorageBar.layoutParams = params
             }
         }
     }
@@ -251,7 +257,7 @@ class DashboardFragment : Fragment() {
         fetchSurveillanceStatus(jwt)
         fetchBatterySnapshot(jwt)
         fetchPerfSnapshot(jwt)
-        fetchTripsSnapshot(jwt)
+        fetchTodayTrips(jwt)
     }
 
     private fun fetchSurveillanceStatus(jwt: String?) {
@@ -265,7 +271,7 @@ class DashboardFragment : Fragment() {
                 val json = if (conn.responseCode == 200)
                     JSONObject(conn.inputStream.bufferedReader().readText()) else null
                 conn.disconnect()
-                handler.post { if (json != null) updateSurveillanceCard(json) }
+                handler.post { if (json != null) updateSentryCard(json) }
             } catch (_: Exception) {}
         }.start()
     }
@@ -281,7 +287,7 @@ class DashboardFragment : Fragment() {
                 val json = if (conn.responseCode == 200)
                     JSONObject(conn.inputStream.bufferedReader().readText()) else null
                 conn.disconnect()
-                handler.post { if (json != null) updateBatteryTiles(json) }
+                handler.post { if (json != null) updateVehicleCard(json) }
             } catch (_: Exception) {}
         }.start()
     }
@@ -297,15 +303,15 @@ class DashboardFragment : Fragment() {
                 val json = if (conn.responseCode == 200)
                     JSONObject(conn.inputStream.bufferedReader().readText()) else null
                 conn.disconnect()
-                handler.post { if (json != null) updatePerfTiles(json) }
+                handler.post { if (json != null) updateSystemMetrics(json) }
             } catch (_: Exception) {}
         }.start()
     }
 
-    private fun fetchTripsSnapshot(jwt: String?) {
+    private fun fetchTodayTrips(jwt: String?) {
         Thread {
             try {
-                val conn = URL("http://127.0.0.1:8080/api/trips/summary?days=7")
+                val conn = URL("http://127.0.0.1:8080/api/trips/summary?days=1")
                     .openConnection() as HttpURLConnection
                 conn.connectTimeout = 3_000
                 conn.readTimeout    = 3_000
@@ -313,95 +319,172 @@ class DashboardFragment : Fragment() {
                 val json = if (conn.responseCode == 200)
                     JSONObject(conn.inputStream.bufferedReader().readText()) else null
                 conn.disconnect()
-                handler.post { if (json != null) updateTripsCard(json) }
+                handler.post { if (json != null) updateTodayTrip(json) }
             } catch (_: Exception) {}
         }.start()
     }
 
     // ── Card update methods ────────────────────────────────────────────────────
 
-    private fun updateSurveillanceCard(json: JSONObject) {
+    private fun updateSentryCard(json: JSONObject) {
         val enabled = json.optBoolean("enabled", false)
         val active  = json.optBoolean("active",  false)
         val events  = json.optInt("events_today", -1)
         val lastDet = json.optString("last_detection", null)
 
-        tvSurvPill.text = when {
-            active  -> "DETECTING"
-            enabled -> "ARMED"
-            else    -> "OFF"
+        val (pillText, pillColor, accentColor) = when {
+            active  -> Triple("DETECTING", R.color.status_warning, R.color.status_warning)
+            enabled -> Triple("ARMED",     R.color.status_success, R.color.status_success)
+            else    -> Triple("OFF",       R.color.text_muted,     android.R.color.transparent)
         }
-        tvSurvPill.setTextColor(resources.getColor(when {
-            active  -> R.color.status_warning
-            enabled -> R.color.status_success
-            else    -> R.color.text_muted
-        }, null))
 
-        tvSurvEvents.text = if (events >= 0) "$events events today" else "-- events today"
-        tvSurvLastDetection.text = if (!lastDet.isNullOrEmpty()) "Last: $lastDet" else "No detections today"
+        tvSurvPill.text = pillText
+        tvSurvPill.setTextColor(resources.getColor(pillColor, null))
+
+        if (accentColor == android.R.color.transparent) {
+            viewSentryAccent.setBackgroundResource(R.drawable.gradient_brand)
+        } else {
+            viewSentryAccent.setBackgroundColor(resources.getColor(accentColor, null))
+        }
+
+        tvSurvEventsNum.text = if (events >= 0) "$events" else "--"
+
+        if (events == 0 || lastDet.isNullOrEmpty()) {
+            tvSurvLastDet.text = "All clear today"
+        } else {
+            tvSurvLastDet.text = "Last at ${parseTimeHHMM(lastDet)}"
+        }
     }
 
-    private fun updateBatteryTiles(json: JSONObject) {
+    private fun updateVehicleCard(json: JSONObject) {
         val current = json.optJSONObject("current") ?: return
         val v12 = current.optDouble("voltage12v", Double.NaN)
 
         val history = json.optJSONArray("voltageHistory")
-        var soc = Double.NaN
+        var soc   = Double.NaN
+        var range = Double.NaN
         if (history != null && history.length() > 0) {
-            soc = history.getJSONObject(history.length() - 1).optDouble("soc", Double.NaN)
+            val last = history.getJSONObject(history.length() - 1)
+            soc   = last.optDouble("soc",   Double.NaN)
+            range = last.optDouble("range", Double.NaN)
         }
 
         if (!v12.isNaN()) {
-            tvStatVolt.text = "%.1fV".format(v12)
             val voltColor = resources.getColor(when {
                 v12 >= 12.4 -> R.color.status_success
                 v12 >= 12.0 -> R.color.status_warning
                 else        -> R.color.status_danger
             }, null)
-            tvStatVolt.setTextColor(voltColor)
-            tileStatVolt.strokeColor = voltColor
+            tvVehicleVoltNum.text = "%.1f".format(v12)
+            tvVehicleVoltNum.setTextColor(voltColor)
+            viewVehicleAccent.setBackgroundColor(voltColor)
+
+            val (badgeText, badgeColor) = when {
+                v12 >= 12.4 -> "GOOD"     to R.color.status_success
+                v12 >= 12.0 -> "LOW"      to R.color.status_warning
+                else        -> "CRITICAL" to R.color.status_danger
+            }
+            tvThermalBadge.text = badgeText
+            tvThermalBadge.setTextColor(resources.getColor(badgeColor, null))
         }
 
-        if (!soc.isNaN()) tvStatSoc.text = "%.0f%%".format(soc)
+        if (!soc.isNaN())   tvStatSoc.text   = "%.0f%%".format(soc)
+        if (!range.isNaN()) tvStatRange.text  = "%.0f km".format(range)
     }
 
-    private fun updatePerfTiles(json: JSONObject) {
+    private fun updateSystemMetrics(json: JSONObject) {
         json.optJSONObject("cpu")?.let { cpu ->
-            val sys = cpu.optDouble("system", Double.NaN)
-            if (!sys.isNaN()) tvStatCpu.text = "%.0f%%".format(sys)
+            val pct = cpu.optDouble("system", Double.NaN)
+            if (!pct.isNaN()) {
+                tvCpuVal.text = "%.0f%%".format(pct)
+                setBarWidth(frameCpuBar, viewCpuBar, pct.toInt())
+            }
         }
         json.optJSONObject("gpu")?.let { gpu ->
-            val usage = gpu.optDouble("usage", Double.NaN)
-            if (!usage.isNaN()) tvStatGpu.text = "%.0f%%".format(usage)
+            val pct = gpu.optDouble("usage", Double.NaN)
+            if (!pct.isNaN()) {
+                tvGpuVal.text = "%.0f%%".format(pct)
+                setBarWidth(frameGpuBar, viewGpuBar, pct.toInt())
+            }
         }
         json.optJSONObject("memory")?.let { mem ->
             val pct = mem.optDouble("usagePercent", Double.NaN)
-            if (!pct.isNaN()) tvStatMem.text = "%.0f%%".format(pct)
+            if (!pct.isNaN()) {
+                tvMemVal.text = "%.0f%%".format(pct)
+                setBarWidth(frameMemBar, viewMemBar, pct.toInt())
+            }
         }
     }
 
-    private fun updateTripsCard(json: JSONObject) {
-        val summaryArr = json.optJSONArray("summary") ?: return
-        if (summaryArr.length() == 0) return
-        val s = summaryArr.getJSONObject(0)
+    private fun updateTodayTrip(json: JSONObject) {
+        val arr = json.optJSONArray("summary") ?: return
+        if (arr.length() == 0) return
+        val s = arr.getJSONObject(0)
 
-        val count = s.optInt("tripCount", s.optInt("trip_count", 0))
+        val count  = s.optInt("tripCount",       s.optInt("trip_count", 0))
         val distKm = s.optDouble("totalDistanceKm", s.optDouble("total_distance_km", 0.0))
 
-        val sA  = s.optDouble("avgAnticipationScore",   s.optDouble("avg_anticipation_score",    0.0))
-        val sS  = s.optDouble("avgSmoothnessScore",     s.optDouble("avg_smoothness_score",       0.0))
-        val sSD = s.optDouble("avgSpeedDisciplineScore",s.optDouble("avg_speed_discipline_score", 0.0))
-        val sE  = s.optDouble("avgEfficiencyScore",     s.optDouble("avg_efficiency_score",       0.0))
-        val sC  = s.optDouble("avgConsistencyScore",    s.optDouble("avg_consistency_score",      0.0))
+        if (count == 0) return
+
+        val sA  = s.optDouble("avgAnticipationScore",    s.optDouble("avg_anticipation_score",    0.0))
+        val sS  = s.optDouble("avgSmoothnessScore",      s.optDouble("avg_smoothness_score",       0.0))
+        val sSD = s.optDouble("avgSpeedDisciplineScore", s.optDouble("avg_speed_discipline_score", 0.0))
+        val sE  = s.optDouble("avgEfficiencyScore",      s.optDouble("avg_efficiency_score",       0.0))
+        val sC  = s.optDouble("avgConsistencyScore",     s.optDouble("avg_consistency_score",      0.0))
         val score = ((sA + sS + sSD + sE + sC) / 5).toInt()
 
-        tvTripsCount.text    = "$count"
-        tvTripsDistance.text = "%.0f".format(distKm)
-        tvTripsScore.text    = "$score"
-        tvTripsScore.setTextColor(resources.getColor(when {
+        tvTodayScore.text = "$score"
+        tvTodayScore.setTextColor(resources.getColor(when {
             score >= 70 -> R.color.status_success
             score >= 40 -> R.color.status_warning
             else        -> R.color.status_danger
         }, null))
+        tvTodayDistance.text = "%.0f km".format(distKm)
+        layoutTodayTrip.visibility = View.VISIBLE
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private fun setBarWidth(frame: FrameLayout, bar: View, percent: Int) {
+        val pct = percent.coerceIn(0, 100)
+        val barColor = when {
+            pct >= 95 -> resources.getColor(R.color.status_danger,  null)
+            pct >= 80 -> resources.getColor(R.color.status_warning, null)
+            else      -> null
+        }
+        frame.post {
+            val params = bar.layoutParams
+            params.width = (frame.width * pct / 100f).toInt().coerceAtLeast(0)
+            bar.layoutParams = params
+            if (barColor != null) {
+                bar.setBackgroundColor(barColor)
+            } else {
+                bar.setBackgroundResource(R.drawable.gradient_brand)
+            }
+        }
+    }
+
+    private fun formatStorageSplit(bytes: Long): Pair<String, String> = when {
+        bytes >= 1_000_000_000L -> "%.1f".format(bytes / 1_000_000_000.0) to " GB"
+        bytes >= 1_000_000L     -> "%.1f".format(bytes / 1_000_000.0)     to " MB"
+        bytes >= 1_000L         -> "%.1f".format(bytes / 1_000.0)         to " KB"
+        else                    -> "$bytes" to " B"
+    }
+
+    private fun parseTimeHHMM(raw: String): String {
+        val isoFormats = listOf(
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd'T'HH:mm:ssZ",
+            "yyyy-MM-dd'T'HH:mm:ss"
+        )
+        for (fmt in isoFormats) {
+            try {
+                val date = SimpleDateFormat(fmt, Locale.US).parse(raw) ?: continue
+                return SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
+            } catch (_: Exception) {}
+        }
+        // Already short — trim to HH:MM if it looks like a time
+        if (raw.length >= 5 && raw[2] == ':') return raw.substring(0, 5)
+        return raw
     }
 }
