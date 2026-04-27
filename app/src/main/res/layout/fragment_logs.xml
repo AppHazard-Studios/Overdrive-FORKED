@@ -27,6 +27,21 @@
             android:layout_height="0dp"
             android:layout_weight="1" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Logging"
+            android:textColor="@color/text_muted"
+            android:textSize="12sp"
+            android:layout_marginEnd="6dp" />
+
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switchLogging"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            style="@style/Widget.Overdrive.Switch" />
+
         <ImageButton
             android:id="@+id/btnExportLogs"
             android:layout_width="32dp"

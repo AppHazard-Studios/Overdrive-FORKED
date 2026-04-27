@@ -1,33 +1,44 @@
 package com.overdrive.app.ui.viewmodel
 
+import android.app.Application
+import android.content.Context
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.ViewModel
 import com.overdrive.app.ui.model.LogEntry
 import com.overdrive.app.ui.model.LogLevel
 
-/**
- * ViewModel for logs panel state.
- * This is a singleton-like ViewModel that persists across fragments.
- */
-class LogsViewModel : ViewModel() {
-    
+class LogsViewModel(app: Application) : AndroidViewModel(app) {
+
     companion object {
         private const val MAX_LOGS = 500
+        private const val PREFS_NAME = "logs_prefs"
+        private const val KEY_ENABLED = "logging_enabled"
     }
-    
+
+    private val prefs = app.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val _loggingEnabled = MutableLiveData(prefs.getBoolean(KEY_ENABLED, true))
+    val loggingEnabled: LiveData<Boolean> = _loggingEnabled
+
     private val _logs = MutableLiveData<List<LogEntry>>(emptyList())
     val logs: LiveData<List<LogEntry>> = _logs
-    
+
     private val _filter = MutableLiveData<String?>(null)
     val filter: LiveData<String?> = _filter
-    
+
     private val _filteredLogs = MutableLiveData<List<LogEntry>>(emptyList())
     val filteredLogs: LiveData<List<LogEntry>> = _filteredLogs
-    
+
     private val allLogs = mutableListOf<LogEntry>()
-    
+
+    fun setLoggingEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_ENABLED, enabled).apply()
+        _loggingEnabled.value = enabled
+    }
+
     fun addLog(tag: String, message: String, level: LogLevel = LogLevel.INFO) {
+        if (_loggingEnabled.value == false) return
         val entry = LogEntry(
             timestamp = System.currentTimeMillis(),
             tag = tag,

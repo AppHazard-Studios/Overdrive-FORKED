@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.overdrive.app.R
 import com.overdrive.app.ui.adapter.LogsAdapter
 import com.overdrive.app.ui.viewmodel.LogsViewModel
@@ -30,6 +31,7 @@ class LogsFragment : Fragment() {
 
     private lateinit var recyclerLogs: RecyclerView
     private lateinit var spinnerFilter: Spinner
+    private lateinit var switchLogging: SwitchMaterial
     private lateinit var btnClearLogs: ImageButton
     private lateinit var btnExportLogs: ImageButton
 
@@ -50,6 +52,7 @@ class LogsFragment : Fragment() {
 
         recyclerLogs = view.findViewById(R.id.recyclerLogs)
         spinnerFilter = view.findViewById(R.id.spinnerFilter)
+        switchLogging = view.findViewById(R.id.switchLogging)
         btnClearLogs = view.findViewById(R.id.btnClearLogs)
         btnExportLogs = view.findViewById(R.id.btnExportLogs)
 
@@ -71,6 +74,14 @@ class LogsFragment : Fragment() {
                 logsViewModel.setFilter(if (position == 0) null else filters[position])
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+
+        // Logging enable/disable toggle
+        logsViewModel.loggingEnabled.observe(viewLifecycleOwner) { enabled ->
+            switchLogging.isChecked = enabled
+        }
+        switchLogging.setOnCheckedChangeListener { _, isChecked ->
+            logsViewModel.setLoggingEnabled(isChecked)
         }
 
         btnClearLogs.setOnClickListener {
