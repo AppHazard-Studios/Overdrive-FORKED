@@ -132,9 +132,26 @@ class SentryConfigFragment : Fragment() {
     private var btnAddCurrentLocation: MaterialButton? = null
     private var safeLocationAdapter: com.overdrive.app.ui.adapter.SafeLocationAdapter? = null
     
+    // V2 Engine Settings views
+    private var toggleEnvironmentPreset: MaterialButtonToggleGroup? = null
+    private var toggleDetectionZone: MaterialButtonToggleGroup? = null
+    private var sliderLoiteringTime: com.google.android.material.slider.Slider? = null
+    private var tvLoiteringValue: TextView? = null
+    private var toggleShadowFilter: MaterialButtonToggleGroup? = null
+    private var chipCameraFront: Chip? = null
+    private var chipCameraRight: Chip? = null
+    private var chipCameraLeft: Chip? = null
+    private var chipCameraRear: Chip? = null
+    // Developer section
+    private var layoutDevHeader: View? = null
+    private var layoutDevContent: View? = null
+    private var tvDevExpand: TextView? = null
+    private var switchMotionHeatmap: com.google.android.material.switchmaterial.SwitchMaterial? = null
+    private var switchFilterDebugLog: com.google.android.material.switchmaterial.SwitchMaterial? = null
+
     // Apply button
     private lateinit var btnApply: MaterialButton
-    
+
     private var hasUnsavedChanges = false
     
     // Flag to prevent listener callbacks during initialization
@@ -215,7 +232,30 @@ class SentryConfigFragment : Fragment() {
         
         // Apply
         btnApply = view.findViewById(R.id.btnApply)
-        
+
+        // V2 Engine Settings
+        toggleEnvironmentPreset = view.findViewById(R.id.toggleEnvironmentPreset)
+        toggleDetectionZone = view.findViewById(R.id.toggleDetectionZone)
+        sliderLoiteringTime = view.findViewById(R.id.sliderLoiteringTime)
+        tvLoiteringValue = view.findViewById(R.id.tvLoiteringValue)
+        toggleShadowFilter = view.findViewById(R.id.toggleShadowFilter)
+        chipCameraFront = view.findViewById(R.id.chipCameraFront)
+        chipCameraRight = view.findViewById(R.id.chipCameraRight)
+        chipCameraLeft = view.findViewById(R.id.chipCameraLeft)
+        chipCameraRear = view.findViewById(R.id.chipCameraRear)
+        layoutDevHeader = view.findViewById(R.id.layoutDevHeader)
+        layoutDevContent = view.findViewById(R.id.layoutDevContent)
+        tvDevExpand = view.findViewById(R.id.tvDevExpand)
+        switchMotionHeatmap = view.findViewById(R.id.switchMotionHeatmap)
+        switchFilterDebugLog = view.findViewById(R.id.switchFilterDebugLog)
+
+        // Developer section toggle
+        layoutDevHeader?.setOnClickListener {
+            val expanded = layoutDevContent?.visibility == android.view.View.VISIBLE
+            layoutDevContent?.visibility = if (expanded) android.view.View.GONE else android.view.View.VISIBLE
+            tvDevExpand?.text = if (expanded) "▼" else "▲"
+        }
+
         // Safe Locations
         switchSafeLocations = view.findViewById(R.id.switchSafeLocations)
         safeLocStatusLayout = view.findViewById(R.id.safeLocStatusLayout)
@@ -300,7 +340,30 @@ class SentryConfigFragment : Fragment() {
         toggleCodec.addOnButtonCheckedListener { _, _, isChecked ->
             if (isChecked && !isInitializing) markChanged()
         }
-        
+
+        // V2 Engine Settings listeners
+        toggleEnvironmentPreset?.addOnButtonCheckedListener { _, _, isChecked ->
+            if (isChecked && !isInitializing) markChanged()
+        }
+        toggleDetectionZone?.addOnButtonCheckedListener { _, _, isChecked ->
+            if (isChecked && !isInitializing) markChanged()
+        }
+        sliderLoiteringTime?.addOnChangeListener { _, value, fromUser ->
+            if (fromUser && !isInitializing) {
+                tvLoiteringValue?.text = "${value.toInt()}s"
+                markChanged()
+            }
+        }
+        toggleShadowFilter?.addOnButtonCheckedListener { _, _, isChecked ->
+            if (isChecked && !isInitializing) markChanged()
+        }
+        chipCameraFront?.setOnCheckedChangeListener { _, _ -> if (!isInitializing) markChanged() }
+        chipCameraRight?.setOnCheckedChangeListener { _, _ -> if (!isInitializing) markChanged() }
+        chipCameraLeft?.setOnCheckedChangeListener { _, _ -> if (!isInitializing) markChanged() }
+        chipCameraRear?.setOnCheckedChangeListener { _, _ -> if (!isInitializing) markChanged() }
+        switchMotionHeatmap?.setOnCheckedChangeListener { _, _ -> if (!isInitializing) markChanged() }
+        switchFilterDebugLog?.setOnCheckedChangeListener { _, _ -> if (!isInitializing) markChanged() }
+
         // Storage limit slider
         sliderSurveillanceLimit.addOnChangeListener { _, value, fromUser ->
             if (fromUser && !isInitializing) {
@@ -639,6 +702,41 @@ class SentryConfigFragment : Fragment() {
         viewModel.setPostEventBuffer(sliderPostBuffer.value.toInt())
         viewModel.setBitrate(bitrate)
         viewModel.setCodec(codec)
+
+        // V2 Engine Settings
+        val preset = when (toggleEnvironmentPreset?.checkedButtonId) {
+            R.id.btnPresetGarage -> "garage"
+            R.id.btnPresetStreet -> "street"
+            else -> "outdoor"
+        }
+        viewModel.setEnvironmentPreset(preset)
+
+        val zone = when (toggleDetectionZone?.checkedButtonId) {
+            R.id.btnZoneClose -> "close"
+            R.id.btnZoneExtended -> "extended"
+            else -> "normal"
+        }
+        viewModel.setDetectionZone(zone)
+
+        sliderLoiteringTime?.let { viewModel.setLoiteringTime(it.value.toInt()) }
+
+        val shadowMode = when (toggleShadowFilter?.checkedButtonId) {
+            R.id.btnShadowOff -> 0
+            R.id.btnShadowLight -> 1
+            R.id.btnShadowAggressive -> 3
+            else -> 2
+        }
+        viewModel.setShadowFilterMode(shadowMode)
+
+        viewModel.setCamerasEnabled(
+            front = chipCameraFront?.isChecked ?: true,
+            right = chipCameraRight?.isChecked ?: true,
+            left = chipCameraLeft?.isChecked ?: true,
+            rear = chipCameraRear?.isChecked ?: true
+        )
+
+        switchMotionHeatmap?.let { viewModel.setMotionHeatmap(it.isChecked) }
+        switchFilterDebugLog?.let { viewModel.setFilterDebugLog(it.isChecked) }
         
         // Save storage limit to unified config and trigger cleanup
         saveStorageLimit(storageLimitMb)
@@ -903,7 +1001,41 @@ class SentryConfigFragment : Fragment() {
             else -> R.id.btnCodecH264
         }
         toggleCodec.check(codecBtnId)
-        
+
+        // V2 Engine Settings
+        val presetBtnId = when (config.environmentPreset) {
+            "garage" -> R.id.btnPresetGarage
+            "street" -> R.id.btnPresetStreet
+            else -> R.id.btnPresetOutdoor
+        }
+        toggleEnvironmentPreset?.check(presetBtnId)
+
+        val zoneBtnId = when (config.detectionZone) {
+            "close" -> R.id.btnZoneClose
+            "extended" -> R.id.btnZoneExtended
+            else -> R.id.btnZoneNormal
+        }
+        toggleDetectionZone?.check(zoneBtnId)
+
+        sliderLoiteringTime?.value = config.loiteringTimeSeconds.toFloat().coerceIn(1f, 10f)
+        tvLoiteringValue?.text = "${config.loiteringTimeSeconds}s"
+
+        val shadowBtnId = when (config.shadowFilterMode) {
+            0 -> R.id.btnShadowOff
+            1 -> R.id.btnShadowLight
+            3 -> R.id.btnShadowAggressive
+            else -> R.id.btnShadowNormal
+        }
+        toggleShadowFilter?.check(shadowBtnId)
+
+        chipCameraFront?.isChecked = config.cameraFrontEnabled
+        chipCameraRight?.isChecked = config.cameraRightEnabled
+        chipCameraLeft?.isChecked = config.cameraLeftEnabled
+        chipCameraRear?.isChecked = config.cameraRearEnabled
+
+        switchMotionHeatmap?.isChecked = config.motionHeatmapEnabled
+        switchFilterDebugLog?.isChecked = config.filterDebugLogEnabled
+
         // Reset unsaved state after loading
         hasUnsavedChanges = false
         btnApply.isEnabled = false
