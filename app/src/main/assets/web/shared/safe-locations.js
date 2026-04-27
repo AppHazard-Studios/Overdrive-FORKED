@@ -28,6 +28,26 @@ window.SafeLocations = {
         await this.loadData();
         this.updateUI();
         this.refreshTimer = setInterval(() => this.refreshStatus(), 5000);
+        this.setupVisibilityHandler();
+    },
+
+    stopRefresh() {
+        if (this.refreshTimer) {
+            clearInterval(this.refreshTimer);
+            this.refreshTimer = null;
+        }
+    },
+
+    setupVisibilityHandler() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.stopRefresh();
+            } else {
+                this.refreshStatus();
+                this.refreshTimer = setInterval(() => this.refreshStatus(), 5000);
+            }
+        });
+        window.addEventListener('beforeunload', () => this.stopRefresh());
     },
 
     async loadData() {

@@ -14,6 +14,7 @@ const MQTT = {
         this.loadConnections();
         this.loadTelemetry();
         this.startAutoRefresh();
+        this.setupVisibilityHandler();
     },
 
     // ==================== DATA LOADING ====================
@@ -62,6 +63,26 @@ const MQTT = {
             this.loadStatus();
             this.loadTelemetry();
         }, 5000);
+    },
+
+    stopAutoRefresh() {
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = null;
+        }
+    },
+
+    setupVisibilityHandler() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.stopAutoRefresh();
+            } else {
+                this.loadStatus();
+                this.loadTelemetry();
+                this.startAutoRefresh();
+            }
+        });
+        window.addEventListener('beforeunload', () => this.stopAutoRefresh());
     },
 
     // ==================== RENDERING ====================
