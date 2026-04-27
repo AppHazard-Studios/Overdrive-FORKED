@@ -33,24 +33,9 @@
             android:title="ADB Console" />
 
         <item
-            android:id="@+id/telegramSettingsFragment"
-            android:icon="@drawable/ic_telegram"
-            android:title="Telegram" />
-
-        <item
             android:id="@+id/abrpSettingsFragment"
             android:icon="@drawable/ic_route"
             android:title="ABRP" />
-
-        <item
-            android:id="@+id/mqttFragment"
-            android:icon="@drawable/ic_mqtt"
-            android:title="MQTT" />
-
-        <item
-            android:id="@+id/tripsFragment"
-            android:icon="@drawable/ic_trips"
-            android:title="Trips" />
 
         <item
             android:id="@+id/performanceFragment"
@@ -63,11 +48,6 @@
             android:title="Logs" />
 
         <item
-            android:id="@+id/remoteAccessFragment"
-            android:icon="@drawable/ic_remote_access"
-            android:title="Remote Access" />
-
-        <item
             android:id="@+id/nav_reconfigure_camera"
             android:icon="@drawable/ic_camera_probe"
             android:title="Reconfigure Camera"
@@ -77,15 +57,6 @@
             android:id="@+id/nav_check_update"
             android:icon="@drawable/ic_update"
             android:title="Check for Updates" />
-    </group>
-
-    <!-- Utilities -->
-    <group android:id="@+id/group_utilities">
-        <item
-            android:id="@+id/nav_traffic_monitor"
-            android:icon="@drawable/ic_traffic_monitor"
-            android:title="Traffic Monitor: Checking..."
-            android:checkable="false" />
     </group>
 
 </menu>

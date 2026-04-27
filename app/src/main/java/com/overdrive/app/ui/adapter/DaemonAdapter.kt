@@ -121,8 +121,8 @@ class DaemonAdapter(
             subprocessContainer.visibility = if (isExpanded && hasSubprocesses) View.VISIBLE else View.GONE
             ivExpand.rotation = if (isExpanded) 180f else 0f
             
-            // Show configure icon for configurable daemons (always visible for Zrok)
-            val isConfigurable = state.type == DaemonType.ZROK_TUNNEL && onConfigureClick != null
+            // No daemons require configuration in lite build
+            val isConfigurable = false
             ivConfigure.visibility = if (isConfigurable) View.VISIBLE else View.GONE
             if (isConfigurable) {
                 ivConfigure.setOnClickListener {
@@ -189,10 +189,6 @@ class DaemonAdapter(
                 DaemonType.CAMERA_DAEMON -> "📷 Camera Daemon"
                 DaemonType.SENTRY_DAEMON -> "🛡️ Sentry Daemon"
                 DaemonType.ACC_SENTRY_DAEMON -> "🚗 ACC Sentry"
-                DaemonType.SINGBOX_PROXY -> "🔗 Sing-box Proxy"
-                DaemonType.CLOUDFLARED_TUNNEL -> "☁️ Cloudflared Tunnel"
-                DaemonType.ZROK_TUNNEL -> "🌐 Zrok Tunnel"
-                DaemonType.TELEGRAM_DAEMON -> "📱 Telegram Bot"
             }
         }
         
@@ -211,10 +207,6 @@ class DaemonAdapter(
                 DaemonType.CAMERA_DAEMON -> "/data/local/tmp/cam_daemon.log"
                 DaemonType.SENTRY_DAEMON -> "/data/local/tmp/sentry_daemon.log"
                 DaemonType.ACC_SENTRY_DAEMON -> "/data/local/tmp/acc_sentry_daemon.log"
-                DaemonType.CLOUDFLARED_TUNNEL -> "/data/local/tmp/cloudflared.log"
-                DaemonType.ZROK_TUNNEL -> "/data/local/tmp/zrok.log"
-                DaemonType.SINGBOX_PROXY -> "/data/local/tmp/singbox.log"
-                DaemonType.TELEGRAM_DAEMON -> "/data/local/tmp/telegrambotdaemon.log"
             }
         }
     }

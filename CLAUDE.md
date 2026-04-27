@@ -384,8 +384,8 @@ All native screens on `lite/main` follow this design language. Do not deviate fr
 
 Work in this order. Each screen is one branch + one PR into `lite/main`.
 
-1. **Dashboard bug fixes** — `fix/dashboard-status` → `lite/main`
-2. **Strip removed features** — `lite/feature-strip-daemons` — remove Telegram, Singbox, Cloudflare, Zrok, MQTT, Trips, Remote Access, Traffic Monitor nav entry. Remove their controllers/launchers. One large PR.
+1. ✅ **Dashboard bug fixes** — merged `fix/dashboard-status` → `lite/main` (PR #26). Fixed: sentry always showing OFF, events count "--", vehicle card missing SOC/range.
+2. ✅ **Strip removed features** — `lite/feature-strip-daemons` pushed, ready to merge → `lite/main`. Removed: Telegram, Singbox, Cloudflare, Zrok, MQTT, Trips, Remote Access, Traffic Monitor nav. Kept daemon-layer Java files that CameraDaemon.java (DO NOT MODIFY) or SurveillanceEngineGpu reference at compile time (mqtt/, trips/, telegram packages).
 3. **Recording Settings native** — `lite/feature-recording-settings-native`
 4. **Surveillance Settings native** — `lite/feature-surveillance-settings-native`
 5. **Performance native** — `lite/feature-performance-native`
