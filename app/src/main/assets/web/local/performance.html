@@ -9,14 +9,128 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <style>
-        /* Performance Dashboard Specific Styles */
+        /* ─── Summary Strip ─────────────────────────────────────── */
+        .summary-strip {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .sum-tile {
+            flex: 1;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 12px 6px;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+
+        .sum-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .sum-lbl {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .sum-tile.volt-ok  { border-color: rgba(34, 197, 94, 0.4); }
+        .sum-tile.volt-ok  .sum-val { color: #22c55e; }
+        .sum-tile.volt-warn { border-color: rgba(245, 158, 11, 0.4); }
+        .sum-tile.volt-warn .sum-val { color: #f59e0b; }
+        .sum-tile.volt-crit { border-color: rgba(239, 68, 68, 0.4); }
+        .sum-tile.volt-crit .sum-val { color: #ef4444; }
+
+        /* ─── Accordion ─────────────────────────────────────────── */
+        .accordion-section {
+            margin-bottom: 12px;
+        }
+
+        .accordion-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.15s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .accordion-header:active {
+            background: var(--bg-elevated);
+        }
+
+        .accordion-header.open {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+
+        .acc-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .acc-title svg {
+            width: 18px;
+            height: 18px;
+            stroke: var(--brand-primary);
+            flex-shrink: 0;
+        }
+
+        .acc-summary {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-right: 10px;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .acc-chevron {
+            width: 16px;
+            height: 16px;
+            stroke: var(--text-muted);
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+        }
+
+        .acc-chevron.open {
+            transform: rotate(90deg);
+        }
+
+        .accordion-body {
+            display: none;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-top: none;
+            border-bottom-left-radius: var(--radius-md);
+            border-bottom-right-radius: var(--radius-md);
+            padding: 16px;
+        }
+
+        /* ─── Metric Cards ───────────────────────────────────────── */
         .metrics-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 16px;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
         }
-        
+
         .metric-card {
             background: var(--bg-surface);
             border: 1px solid var(--border-subtle);
@@ -25,7 +139,7 @@
             position: relative;
             overflow: hidden;
         }
-        
+
         .metric-card::before {
             content: '';
             position: absolute;
@@ -36,17 +150,17 @@
             background: var(--brand-gradient);
             opacity: 0.6;
         }
-        
+
         .metric-card.warning::before { background: var(--warning); opacity: 1; }
-        .metric-card.danger::before { background: var(--danger); opacity: 1; }
-        
+        .metric-card.danger::before  { background: var(--danger);  opacity: 1; }
+
         .metric-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
             margin-bottom: 16px;
         }
-        
+
         .metric-title {
             display: flex;
             align-items: center;
@@ -57,13 +171,13 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .metric-title svg {
             width: 20px;
             height: 20px;
             stroke: var(--brand-primary);
         }
-        
+
         .metric-value {
             font-family: 'JetBrains Mono', monospace;
             font-size: 36px;
@@ -71,20 +185,20 @@
             color: var(--text-primary);
             line-height: 1;
         }
-        
+
         .metric-value .unit {
             font-size: 16px;
             font-weight: 500;
             color: var(--text-muted);
             margin-left: 4px;
         }
-        
+
         .metric-subtitle {
             font-size: 13px;
             color: var(--text-muted);
             margin-top: 8px;
         }
-        
+
         .metric-bar {
             height: 8px;
             background: var(--bg-elevated);
@@ -92,85 +206,18 @@
             margin-top: 16px;
             overflow: hidden;
         }
-        
+
         .metric-bar-fill {
             height: 100%;
             border-radius: 4px;
             background: var(--brand-gradient);
             transition: width 0.3s ease;
         }
-        
+
         .metric-bar-fill.warning { background: var(--warning); }
-        .metric-bar-fill.danger { background: var(--danger); }
+        .metric-bar-fill.danger  { background: var(--danger);  }
         .metric-bar-fill.ev-battery { background: linear-gradient(90deg, var(--success), #22d3ee); }
-        
-        /* Chart Container */
-        .chart-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 20px;
-            margin-bottom: 16px;
-        }
-        
-        .chart-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-        }
-        
-        .chart-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-        
-        .chart-legend {
-            display: flex;
-            gap: 16px;
-            font-size: 12px;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            color: var(--text-secondary);
-        }
-        
-        .legend-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-        }
-        
-        .legend-dot.system { background: var(--brand-primary); }
-        .legend-dot.app { background: var(--brand-secondary); }
-        .legend-dot.gpu { background: #a855f7; }
-        
-        .chart-container {
-            position: relative;
-            height: 200px;
-            width: 100%;
-        }
-        
-        .chart-canvas {
-            width: 100%;
-            height: 100%;
-            cursor: crosshair;
-        }
-        
-        /* Interactive chart hint */
-        .chart-hint {
-            font-size: 11px;
-            color: var(--text-muted);
-            text-align: center;
-            margin-top: 8px;
-            opacity: 0.7;
-        }
-        
-        /* Stats Grid */
+
         .stats-row {
             display: flex;
             gap: 24px;
@@ -179,127 +226,166 @@
             padding-top: 16px;
             border-top: 1px solid var(--border-subtle);
         }
-        
+
         .stat-item {
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
-        
+
         .stat-label {
             font-size: 11px;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .stat-value {
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             font-weight: 600;
             color: var(--text-primary);
         }
-        
-        /* App Memory Breakdown */
+
         .memory-breakdown {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
             margin-top: 16px;
         }
-        
+
         .breakdown-item {
             background: var(--bg-elevated);
             border-radius: var(--radius-sm);
             padding: 12px;
             text-align: center;
         }
-        
+
         .breakdown-value {
             font-family: 'JetBrains Mono', monospace;
             font-size: 18px;
             font-weight: 600;
             color: var(--text-primary);
         }
-        
+
         .breakdown-label {
             font-size: 11px;
             color: var(--text-muted);
             margin-top: 4px;
         }
-        
-        /* Monitoring Status */
-        .monitoring-status {
+
+        /* ─── Chart Containers ───────────────────────────────────── */
+        .chart-card {
+            background: transparent;
+            margin-bottom: 16px;
+        }
+
+        .chart-card:last-child { margin-bottom: 0; }
+
+        .chart-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 16px;
-            background: var(--bg-elevated);
-            border-radius: var(--radius-full);
-            font-size: 13px;
+            justify-content: space-between;
+            margin-bottom: 12px;
         }
-        
-        .monitoring-dot {
-            width: 8px;
-            height: 8px;
+
+        .chart-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 16px;
+            font-size: 12px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
-            background: var(--success);
-            animation: pulse 2s infinite;
         }
-        
-        .monitoring-dot.inactive {
-            background: var(--text-muted);
-            animation: none;
+
+        .legend-dot.system { background: var(--brand-primary); }
+        .legend-dot.app    { background: var(--brand-secondary); }
+        .legend-dot.gpu    { background: #a855f7; }
+
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
         }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+
+        .chart-canvas {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
         }
-        
-        /* SOC Chart Card */
-        .soc-chart-card {
-            background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(0, 212, 170, 0.05) 100%);
-            border: 1px solid rgba(0, 212, 170, 0.2);
+
+        .chart-hint {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 8px;
+            opacity: 0.7;
         }
-        
-        .soc-chart-card .chart-title {
+
+        /* ─── SOC / Battery specific ─────────────────────────────── */
+        .soc-chart-header {
             display: flex;
             align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
         }
-        
+
+        .soc-chart-title {
+            display: flex;
+            align-items: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
         .soc-stats-row {
             display: flex;
             gap: 16px;
             flex-wrap: wrap;
-            margin-bottom: 16px;
-            padding: 12px 16px;
+            margin-bottom: 12px;
+            padding: 10px 14px;
             background: var(--bg-elevated);
             border-radius: var(--radius-sm);
         }
-        
+
         .soc-stat {
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-width: 60px;
+            min-width: 56px;
         }
-        
+
         .soc-stat-value {
             font-family: 'JetBrains Mono', monospace;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 700;
             color: var(--text-primary);
         }
-        
+
         .soc-stat-label {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-top: 2px;
         }
-        
+
         .soc-time-selector {
             display: flex;
             gap: 4px;
@@ -307,9 +393,9 @@
             padding: 4px;
             border-radius: var(--radius-sm);
         }
-        
+
         .time-btn {
-            padding: 6px 12px;
+            padding: 5px 10px;
             font-size: 12px;
             font-weight: 500;
             color: var(--text-secondary);
@@ -319,44 +405,11 @@
             cursor: pointer;
             transition: all 0.2s ease;
         }
-        
-        .time-btn:hover {
-            color: var(--text-primary);
-            background: var(--bg-surface);
-        }
-        
-        .time-btn.active {
-            color: var(--brand-primary);
-            background: var(--bg-surface);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .metrics-grid {
-                grid-template-columns: 1fr;
-            }
-            .metric-value {
-                font-size: 28px;
-            }
-            .memory-breakdown {
-                grid-template-columns: 1fr;
-            }
-            .soc-stats-row {
-                justify-content: space-between;
-            }
-            .soc-stat {
-                min-width: 50px;
-            }
-            .soc-stat-value {
-                font-size: 16px;
-            }
-            .soc-time-selector {
-                flex-wrap: wrap;
-            }
-        }
-        
-        /* GPU Health Indicator Styles */
+
+        .time-btn:hover { color: var(--text-primary); background: var(--bg-surface); }
+        .time-btn.active { color: var(--brand-primary); background: var(--bg-surface); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+
+        /* ─── GPU Health ─────────────────────────────────────────── */
         .gpu-status-badge {
             font-size: 10px;
             font-weight: 600;
@@ -365,27 +418,12 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
-        .gpu-status-badge.efficient {
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-        }
-        
-        .gpu-status-badge.optimal {
-            background: rgba(0, 212, 170, 0.2);
-            color: #00D4AA;
-        }
-        
-        .gpu-status-badge.heavy {
-            background: rgba(251, 191, 36, 0.2);
-            color: #fbbf24;
-        }
-        
-        .gpu-status-badge.critical {
-            background: rgba(239, 68, 68, 0.2);
-            color: #ef4444;
-        }
-        
+
+        .gpu-status-badge.efficient { background: rgba(34,197,94,0.2);  color: #22c55e; }
+        .gpu-status-badge.optimal   { background: rgba(0,212,170,0.2);  color: #00D4AA; }
+        .gpu-status-badge.heavy     { background: rgba(251,191,36,0.2); color: #fbbf24; }
+        .gpu-status-badge.critical  { background: rgba(239,68,68,0.2);  color: #ef4444; }
+
         .gpu-health-hint {
             margin-top: 12px;
             padding: 10px 12px;
@@ -397,7 +435,7 @@
             gap: 8px;
             line-height: 1.5;
         }
-        
+
         .gpu-health-hint .hint-icon {
             flex-shrink: 0;
             width: 16px;
@@ -409,58 +447,57 @@
             font-size: 10px;
             margin-top: 1px;
         }
-        
-        .gpu-health-hint.efficient {
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.2);
+
+        .gpu-health-hint.efficient { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2); }
+        .gpu-health-hint.efficient .hint-icon { background: rgba(34,197,94,0.2); }
+        .gpu-health-hint.efficient .hint-icon::before { content: '✓'; color: #22c55e; }
+        .gpu-health-hint.optimal   .hint-icon { background: rgba(0,212,170,0.2); }
+        .gpu-health-hint.optimal   .hint-icon::before { content: '●'; color: #00D4AA; }
+        .gpu-health-hint.heavy     .hint-icon { background: rgba(251,191,36,0.2); }
+        .gpu-health-hint.heavy     .hint-icon::before { content: '!'; color: #fbbf24; font-weight: bold; }
+        .gpu-health-hint.critical  { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.2); }
+        .gpu-health-hint.critical  .hint-icon { background: rgba(239,68,68,0.2); }
+        .gpu-health-hint.critical  .hint-icon::before { content: '⚠'; color: #ef4444; }
+        .gpu-health-hint .hint-text { color: var(--text-secondary); }
+        .gpu-health-hint.efficient .hint-text { color: #86efac; }
+        .gpu-health-hint.critical  .hint-text { color: #fca5a5; }
+
+        /* ─── Monitoring status ──────────────────────────────────── */
+        .monitoring-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-elevated);
+            border-radius: var(--radius-full);
+            font-size: 13px;
         }
-        .gpu-health-hint.efficient .hint-icon {
-            background: rgba(34, 197, 94, 0.2);
+
+        .monitoring-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            animation: pulse 2s infinite;
         }
-        .gpu-health-hint.efficient .hint-icon::before {
-            content: '✓';
-            color: #22c55e;
+
+        .monitoring-dot.inactive {
+            background: var(--text-muted);
+            animation: none;
         }
-        
-        .gpu-health-hint.optimal .hint-icon {
-            background: rgba(0, 212, 170, 0.2);
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.5; }
         }
-        .gpu-health-hint.optimal .hint-icon::before {
-            content: '●';
-            color: #00D4AA;
-        }
-        
-        .gpu-health-hint.heavy .hint-icon {
-            background: rgba(251, 191, 36, 0.2);
-        }
-        .gpu-health-hint.heavy .hint-icon::before {
-            content: '!';
-            color: #fbbf24;
-            font-weight: bold;
-        }
-        
-        .gpu-health-hint.critical {
-            background: rgba(239, 68, 68, 0.1);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-        .gpu-health-hint.critical .hint-icon {
-            background: rgba(239, 68, 68, 0.2);
-        }
-        .gpu-health-hint.critical .hint-icon::before {
-            content: '⚠';
-            color: #ef4444;
-        }
-        
-        .gpu-health-hint .hint-text {
-            color: var(--text-secondary);
-        }
-        
-        .gpu-health-hint.efficient .hint-text {
-            color: #86efac;
-        }
-        
-        .gpu-health-hint.critical .hint-text {
-            color: #fca5a5;
+
+        /* ─── Responsive ─────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .metrics-grid { grid-template-columns: 1fr; }
+            .metric-value { font-size: 28px; }
+            .memory-breakdown { grid-template-columns: 1fr; }
+            .soc-stats-row { justify-content: space-between; }
+            .sum-val { font-size: 17px; }
         }
     </style>
 </head>
@@ -694,106 +731,28 @@
             </header>
 
             <div class="page-body">
-                <!-- SOC History Chart (Persistent - 3 days) -->
-                <div class="chart-card soc-chart-card">
-                    <div class="chart-header">
-                        <div class="chart-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;margin-right:8px;stroke:var(--success);">
-                                <rect x="6" y="7" width="12" height="10" rx="1"/><path d="M6 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2"/><path d="M18 10h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2"/>
-                            </svg>
-                            Battery SOC History
-                        </div>
-                        <div class="soc-time-selector" id="socTimeSelector">
-                            <button class="time-btn" data-hours="24" onclick="BYD.performance.setSocTimeRange(24)">24h</button>
-                            <button class="time-btn active" data-hours="72" onclick="BYD.performance.setSocTimeRange(72)">3 Days</button>
-                            <button class="time-btn" data-hours="168" onclick="BYD.performance.setSocTimeRange(168)">7 Days</button>
-                        </div>
+
+                <!-- ── Summary Strip ──────────────────────────────── -->
+                <div class="summary-strip">
+                    <div class="sum-tile" id="sumTileCpu">
+                        <div class="sum-val" id="sumCpu">--</div>
+                        <div class="sum-lbl">CPU</div>
                     </div>
-                    <div class="soc-stats-row">
-                        <div class="soc-stat"><span class="soc-stat-value" id="socCurrent">--%</span><span class="soc-stat-label">Current</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="socKwh">-- kWh</span><span class="soc-stat-label">Energy</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="socMin">--%</span><span class="soc-stat-label">Min</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="socMax">--%</span><span class="soc-stat-label">Max</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="socAvg">--%</span><span class="soc-stat-label">Avg</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="chargingSessions">--</span><span class="soc-stat-label">Charges</span></div>
+                    <div class="sum-tile" id="sumTileGpu">
+                        <div class="sum-val" id="sumGpu">--</div>
+                        <div class="sum-lbl">GPU</div>
                     </div>
-                    <div class="chart-container" style="height: 250px;">
-                        <canvas id="socChart" class="chart-canvas"></canvas>
+                    <div class="sum-tile" id="sumTile12v">
+                        <div class="sum-val" id="sum12v">--</div>
+                        <div class="sum-lbl">12V</div>
                     </div>
-                    <div class="chart-legend" style="margin-top:12px;justify-content:center;">
-                        <div class="legend-item"><span class="legend-dot" style="background:var(--success);"></span>SOC %</div>
-                        <div class="legend-item"><span class="legend-dot" style="background:var(--brand-secondary);"></span>Charging</div>
+                    <div class="sum-tile" id="sumTileSoc">
+                        <div class="sum-val" id="sumSoc">--</div>
+                        <div class="sum-lbl">SOC</div>
                     </div>
                 </div>
 
-                <!-- 12V Battery History Chart -->
-                <div class="chart-card soc-chart-card" id="voltageChartCard">
-                    <div class="chart-header">
-                        <div class="chart-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;margin-right:8px;stroke:#fbbf24;">
-                                <rect x="6" y="7" width="12" height="10" rx="1"/><path d="M6 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2"/><path d="M18 10h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2"/>
-                            </svg>
-                            12V Battery History
-                        </div>
-                        <div class="soc-time-selector" id="voltageTimeSelector">
-                            <button class="time-btn" data-hours="24" onclick="BYD.performance.setBatteryTimeRange(24)">24h</button>
-                            <button class="time-btn active" data-hours="72" onclick="BYD.performance.setBatteryTimeRange(72)">3 Days</button>
-                            <button class="time-btn" data-hours="168" onclick="BYD.performance.setBatteryTimeRange(168)">7 Days</button>
-                        </div>
-                    </div>
-                    <div class="soc-stats-row">
-                        <div class="soc-stat"><span class="soc-stat-value" id="volt12vCurrent">--V</span><span class="soc-stat-label">Current</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="volt12vMin">--V</span><span class="soc-stat-label">Min</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="volt12vMax">--V</span><span class="soc-stat-label">Max</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="volt12vAvg">--V</span><span class="soc-stat-label">Avg</span></div>
-                    </div>
-                    <div class="chart-container" style="height: 200px;">
-                        <canvas id="voltageChart" class="chart-canvas"></canvas>
-                    </div>
-                    <div class="chart-hint">Touch or hover to see values</div>
-                    <div class="chart-legend" style="margin-top:8px;justify-content:center;">
-                        <div class="legend-item"><span class="legend-dot" style="background:#fbbf24;"></span>12V Voltage</div>
-                        <div class="legend-item"><span class="legend-dot" style="background:rgba(239,68,68,0.5);"></span>Warning (11.5V)</div>
-                        <div class="legend-item"><span class="legend-dot" style="background:rgba(14,165,233,0.3);"></span>Charging</div>
-                    </div>
-                </div>
-
-                <!-- Battery Health Card -->
-                <div class="chart-card soc-chart-card" id="batteryHealthCard">
-                    <div class="chart-header">
-                        <div class="chart-title">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px;height:20px;margin-right:8px;stroke:#a855f7;">
-                                <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
-                            </svg>
-                            Battery Health
-                        </div>
-                        <div class="soc-time-selector" id="healthTimeSelector">
-                            <button class="time-btn" data-hours="24" onclick="BYD.performance.setHealthTimeRange(24)">24h</button>
-                            <button class="time-btn active" data-hours="72" onclick="BYD.performance.setHealthTimeRange(72)">3 Days</button>
-                            <button class="time-btn" data-hours="168" onclick="BYD.performance.setHealthTimeRange(168)">7 Days</button>
-                        </div>
-                    </div>
-                    <div class="soc-stats-row">
-                        <div class="soc-stat"><span class="soc-stat-value" id="sohValue" style="color:#a855f7;">--%</span><span class="soc-stat-label">SOH</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="estCapacity">-- kWh</span><span class="soc-stat-label">Est. Cap</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="tempHighVal">--°C</span><span class="soc-stat-label">Temp Hi</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="tempLowVal">--°C</span><span class="soc-stat-label">Temp Lo</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="tempDeltaVal">--°C</span><span class="soc-stat-label">Δ Temp</span></div>
-                        <div class="soc-stat"><span class="soc-stat-value" id="thermalStatus">--</span><span class="soc-stat-label">Status</span></div>
-                    </div>
-                    <div class="chart-container" style="height: 220px;">
-                        <canvas id="thermalChart" class="chart-canvas"></canvas>
-                    </div>
-                    <div class="chart-hint">Touch or hover to see values</div>
-                    <div class="chart-legend" style="margin-top:8px;justify-content:center;">
-                        <div class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span>High</div>
-                        <div class="legend-item"><span class="legend-dot" style="background:#22c55e;"></span>Low</div>
-                        <div class="legend-item"><span class="legend-dot" style="background:#3b82f6;"></span>Average</div>
-                        <div class="legend-item"><span class="legend-dot" style="background:rgba(14,165,233,0.3);"></span>Charging</div>
-                    </div>
-                </div>
-
-                <!-- Quick Stats Grid -->
+                <!-- ── Quick Stats Grid ───────────────────────────── -->
                 <div class="metrics-grid">
                     <!-- CPU Card -->
                     <div class="metric-card" id="cpuCard">
@@ -808,7 +767,7 @@
                         </div>
                         <div class="metric-value"><span id="cpuValue">--</span><span class="unit">%</span></div>
                         <div class="metric-subtitle">App: <span id="cpuAppValue">--</span>%</div>
-                        <div class="metric-bar"><div class="metric-bar-fill" id="cpuBar" style="width: 0%"></div></div>
+                        <div class="metric-bar"><div class="metric-bar-fill" id="cpuBar" style="width:0%"></div></div>
                         <div class="stats-row">
                             <div class="stat-item">
                                 <span class="stat-label">Frequency</span>
@@ -834,7 +793,7 @@
                         </div>
                         <div class="metric-value"><span id="memValue">--</span><span class="unit">%</span></div>
                         <div class="metric-subtitle"><span id="memUsed">--</span> / <span id="memTotal">--</span> MB</div>
-                        <div class="metric-bar"><div class="metric-bar-fill" id="memBar" style="width: 0%"></div></div>
+                        <div class="metric-bar"><div class="metric-bar-fill" id="memBar" style="width:0%"></div></div>
                         <div class="memory-breakdown">
                             <div class="breakdown-item">
                                 <div class="breakdown-value" id="appMemTotal">--</div>
@@ -865,7 +824,7 @@
                         </div>
                         <div class="metric-value"><span id="gpuValue">--</span><span class="unit">%</span></div>
                         <div class="metric-subtitle" id="gpuSubtitle">Graphics Processing</div>
-                        <div class="metric-bar"><div class="metric-bar-fill" id="gpuBar" style="width: 0%"></div></div>
+                        <div class="metric-bar"><div class="metric-bar-fill" id="gpuBar" style="width:0%"></div></div>
                         <div class="stats-row">
                             <div class="stat-item">
                                 <span class="stat-label">Frequency</span>
@@ -876,7 +835,6 @@
                                 <span class="stat-value" id="gpuTemp">--°C</span>
                             </div>
                         </div>
-                        <!-- GPU Health Indicator -->
                         <div class="gpu-health-hint" id="gpuHealthHint" style="display:none;">
                             <span class="hint-icon"></span>
                             <span class="hint-text" id="gpuHintText"></span>
@@ -924,7 +882,7 @@
                         </div>
                         <div class="metric-value"><span id="evSocValue">--</span><span class="unit">%</span></div>
                         <div class="metric-subtitle"><span id="evKwhValue">--</span> kWh remaining</div>
-                        <div class="metric-bar"><div class="metric-bar-fill ev-battery" id="evSocBar" style="width: 0%"></div></div>
+                        <div class="metric-bar"><div class="metric-bar-fill ev-battery" id="evSocBar" style="width:0%"></div></div>
                         <div class="stats-row">
                             <div class="stat-item">
                                 <span class="stat-label">Range</span>
@@ -942,49 +900,223 @@
                     </div>
                 </div>
 
-                <!-- CPU Usage Chart -->
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <div class="chart-title">CPU Usage History (60s)</div>
-                        <div class="chart-legend">
-                            <div class="legend-item"><span class="legend-dot system"></span>System</div>
-                            <div class="legend-item"><span class="legend-dot app"></span>App</div>
+                <!-- ── Battery accordion ──────────────────────────── -->
+                <div class="accordion-section">
+                    <div class="accordion-header" id="hdrBattery" onclick="BYD.performance.toggleSection('Battery')">
+                        <div class="acc-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="6" y="7" width="12" height="10" rx="1"/>
+                                <path d="M6 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2"/>
+                                <path d="M18 10h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2"/>
+                            </svg>
+                            Battery History
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <span class="acc-summary" id="sumBattery">SOC / 12V / Thermal</span>
+                            <svg class="acc-chevron" id="chevBattery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
                         </div>
                     </div>
-                    <div class="chart-container">
-                        <canvas id="cpuChart" class="chart-canvas"></canvas>
-                    </div>
-                    <div class="chart-hint">Touch or hover to see values</div>
+                    <div class="accordion-body" id="accBattery">
+
+                        <!-- SOC History Chart -->
+                        <div class="chart-card">
+                            <div class="soc-chart-header">
+                                <div class="soc-chart-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;margin-right:8px;stroke:#22c55e;">
+                                        <rect x="6" y="7" width="12" height="10" rx="1"/><path d="M6 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2"/><path d="M18 10h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2"/>
+                                    </svg>
+                                    Battery SOC History
+                                </div>
+                                <div class="soc-time-selector" id="socTimeSelector">
+                                    <button class="time-btn" data-hours="24" onclick="BYD.performance.setSocTimeRange(24)">24h</button>
+                                    <button class="time-btn active" data-hours="72" onclick="BYD.performance.setSocTimeRange(72)">3 Days</button>
+                                    <button class="time-btn" data-hours="168" onclick="BYD.performance.setSocTimeRange(168)">7 Days</button>
+                                </div>
+                            </div>
+                            <div class="soc-stats-row">
+                                <div class="soc-stat"><span class="soc-stat-value" id="socCurrent">--%</span><span class="soc-stat-label">Current</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="socKwh">-- kWh</span><span class="soc-stat-label">Energy</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="socMin">--%</span><span class="soc-stat-label">Min</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="socMax">--%</span><span class="soc-stat-label">Max</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="socAvg">--%</span><span class="soc-stat-label">Avg</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="chargingSessions">--</span><span class="soc-stat-label">Charges</span></div>
+                            </div>
+                            <div class="chart-container" style="height:240px;">
+                                <canvas id="socChart" class="chart-canvas"></canvas>
+                            </div>
+                            <div class="chart-legend" style="margin-top:10px;justify-content:center;">
+                                <div class="legend-item"><span class="legend-dot" style="background:#22c55e;"></span>SOC %</div>
+                                <div class="legend-item"><span class="legend-dot" style="background:#0ea5e9;"></span>Charging</div>
+                            </div>
+                        </div>
+
+                        <!-- 12V Battery History Chart -->
+                        <div class="chart-card">
+                            <div class="soc-chart-header">
+                                <div class="soc-chart-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;margin-right:8px;stroke:#fbbf24;">
+                                        <rect x="6" y="7" width="12" height="10" rx="1"/><path d="M6 10H4a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2"/><path d="M18 10h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2"/>
+                                    </svg>
+                                    12V Battery History
+                                </div>
+                                <div class="soc-time-selector" id="voltageTimeSelector">
+                                    <button class="time-btn" data-hours="24" onclick="BYD.performance.setBatteryTimeRange(24)">24h</button>
+                                    <button class="time-btn active" data-hours="72" onclick="BYD.performance.setBatteryTimeRange(72)">3 Days</button>
+                                    <button class="time-btn" data-hours="168" onclick="BYD.performance.setBatteryTimeRange(168)">7 Days</button>
+                                </div>
+                            </div>
+                            <div class="soc-stats-row">
+                                <div class="soc-stat"><span class="soc-stat-value" id="volt12vCurrent">--V</span><span class="soc-stat-label">Current</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="volt12vMin">--V</span><span class="soc-stat-label">Min</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="volt12vMax">--V</span><span class="soc-stat-label">Max</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="volt12vAvg">--V</span><span class="soc-stat-label">Avg</span></div>
+                            </div>
+                            <div class="chart-container" style="height:200px;">
+                                <canvas id="voltageChart" class="chart-canvas"></canvas>
+                            </div>
+                            <div class="chart-hint">Touch or hover to see values</div>
+                            <div class="chart-legend" style="margin-top:8px;justify-content:center;">
+                                <div class="legend-item"><span class="legend-dot" style="background:#fbbf24;"></span>12V Voltage</div>
+                                <div class="legend-item"><span class="legend-dot" style="background:rgba(239,68,68,0.5);"></span>Warning (11.5V)</div>
+                                <div class="legend-item"><span class="legend-dot" style="background:rgba(14,165,233,0.3);"></span>Charging</div>
+                            </div>
+                        </div>
+
+                        <!-- Battery Health Card -->
+                        <div class="chart-card">
+                            <div class="soc-chart-header">
+                                <div class="soc-chart-title">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px;height:18px;margin-right:8px;stroke:#a855f7;">
+                                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                                    </svg>
+                                    Battery Health
+                                </div>
+                                <div class="soc-time-selector" id="healthTimeSelector">
+                                    <button class="time-btn" data-hours="24" onclick="BYD.performance.setHealthTimeRange(24)">24h</button>
+                                    <button class="time-btn active" data-hours="72" onclick="BYD.performance.setHealthTimeRange(72)">3 Days</button>
+                                    <button class="time-btn" data-hours="168" onclick="BYD.performance.setHealthTimeRange(168)">7 Days</button>
+                                </div>
+                            </div>
+                            <div class="soc-stats-row">
+                                <div class="soc-stat"><span class="soc-stat-value" id="sohValue" style="color:#a855f7;">--%</span><span class="soc-stat-label">SOH</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="estCapacity">-- kWh</span><span class="soc-stat-label">Est. Cap</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="tempHighVal">--°C</span><span class="soc-stat-label">Temp Hi</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="tempLowVal">--°C</span><span class="soc-stat-label">Temp Lo</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="tempDeltaVal">--°C</span><span class="soc-stat-label">Δ Temp</span></div>
+                                <div class="soc-stat"><span class="soc-stat-value" id="thermalStatus">--</span><span class="soc-stat-label">Status</span></div>
+                            </div>
+                            <div class="chart-container" style="height:220px;">
+                                <canvas id="thermalChart" class="chart-canvas"></canvas>
+                            </div>
+                            <div class="chart-hint">Touch or hover to see values</div>
+                            <div class="chart-legend" style="margin-top:8px;justify-content:center;">
+                                <div class="legend-item"><span class="legend-dot" style="background:#ef4444;"></span>High</div>
+                                <div class="legend-item"><span class="legend-dot" style="background:#22c55e;"></span>Low</div>
+                                <div class="legend-item"><span class="legend-dot" style="background:#3b82f6;"></span>Average</div>
+                                <div class="legend-item"><span class="legend-dot" style="background:rgba(14,165,233,0.3);"></span>Charging</div>
+                            </div>
+                        </div>
+
+                    </div><!-- /accBattery -->
                 </div>
 
-                <!-- Memory Usage Chart -->
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <div class="chart-title">Memory Usage History (60s)</div>
-                        <div class="chart-legend">
-                            <div class="legend-item"><span class="legend-dot system"></span>System</div>
-                            <div class="legend-item"><span class="legend-dot app"></span>App</div>
+                <!-- ── CPU accordion ──────────────────────────────── -->
+                <div class="accordion-section">
+                    <div class="accordion-header" id="hdrCpu" onclick="BYD.performance.toggleSection('Cpu')">
+                        <div class="acc-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/>
+                                <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/>
+                            </svg>
+                            CPU History (60s)
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <span class="acc-summary">System &amp; App</span>
+                            <svg class="acc-chevron" id="chevCpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
                         </div>
                     </div>
-                    <div class="chart-container">
-                        <canvas id="memChart" class="chart-canvas"></canvas>
+                    <div class="accordion-body" id="accCpu">
+                        <div class="chart-header">
+                            <div class="chart-title">CPU Usage History (60s)</div>
+                            <div class="chart-legend">
+                                <div class="legend-item"><span class="legend-dot system"></span>System</div>
+                                <div class="legend-item"><span class="legend-dot app"></span>App</div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="cpuChart" class="chart-canvas"></canvas>
+                        </div>
+                        <div class="chart-hint">Touch or hover to see values</div>
                     </div>
                 </div>
 
-                <!-- GPU Usage Chart -->
-                <div class="chart-card">
-                    <div class="chart-header">
-                        <div class="chart-title">GPU Usage History (60s)</div>
-                        <div class="chart-legend">
-                            <div class="legend-item"><span class="legend-dot gpu"></span>GPU Load</div>
+                <!-- ── GPU accordion ──────────────────────────────── -->
+                <div class="accordion-section">
+                    <div class="accordion-header" id="hdrGpu" onclick="BYD.performance.toggleSection('Gpu')">
+                        <div class="acc-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="6" width="20" height="12" rx="2"/>
+                                <path d="M6 10h4v4H6zM14 10h4v4h-4z"/>
+                            </svg>
+                            GPU History (60s)
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <span class="acc-summary">GPU Load</span>
+                            <svg class="acc-chevron" id="chevGpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
                         </div>
                     </div>
-                    <div class="chart-container">
-                        <canvas id="gpuChart" class="chart-canvas"></canvas>
+                    <div class="accordion-body" id="accGpu">
+                        <div class="chart-header">
+                            <div class="chart-title">GPU Usage History (60s)</div>
+                            <div class="chart-legend">
+                                <div class="legend-item"><span class="legend-dot gpu"></span>GPU Load</div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="gpuChart" class="chart-canvas"></canvas>
+                        </div>
+                        <div class="chart-hint">Touch or hover to see values</div>
                     </div>
                 </div>
 
-            </div>
+                <!-- ── Memory accordion ───────────────────────────── -->
+                <div class="accordion-section">
+                    <div class="accordion-header" id="hdrMem" onclick="BYD.performance.toggleSection('Mem')">
+                        <div class="acc-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M6 19v-3M10 19v-3M14 19v-3M18 19v-3M6 8v-3M10 8v-3M14 8v-3M18 8v-3"/>
+                                <rect x="2" y="8" width="20" height="8" rx="1"/>
+                            </svg>
+                            Memory History (60s)
+                        </div>
+                        <div style="display:flex;align-items:center;gap:4px;">
+                            <span class="acc-summary">System &amp; App</span>
+                            <svg class="acc-chevron" id="chevMem" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="accordion-body" id="accMem">
+                        <div class="chart-header">
+                            <div class="chart-title">Memory Usage History (60s)</div>
+                            <div class="chart-legend">
+                                <div class="legend-item"><span class="legend-dot system"></span>System</div>
+                                <div class="legend-item"><span class="legend-dot app"></span>App</div>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="memChart" class="chart-canvas"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /page-body -->
         </main>
     </div>
 

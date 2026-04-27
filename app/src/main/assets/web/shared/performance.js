@@ -50,6 +50,45 @@ BYD.performance = {
         dataIndex: -1
     },
     
+    // Accordion section → canvas ID + chart type pairs
+    _sectionChartMap: {
+        Battery: [['socChart','soc'], ['voltageChart','voltage'], ['thermalChart','thermal']],
+        Cpu:     [['cpuChart','cpu']],
+        Gpu:     [['gpuChart','gpu']],
+        Mem:     [['memChart','mem']]
+    },
+
+    /**
+     * Toggle an accordion section open/closed.
+     * Re-initialises canvases after opening (they have 0 dimensions while hidden).
+     */
+    toggleSection(name) {
+        const body  = document.getElementById('acc' + name);
+        const chev  = document.getElementById('chev' + name);
+        const hdr   = document.getElementById('hdr' + name);
+        if (!body) return;
+
+        const opening = body.style.display === '' || body.style.display === 'none';
+        body.style.display = opening ? 'block' : 'none';
+        if (chev) chev.classList.toggle('open', opening);
+        if (hdr)  hdr.classList.toggle('open', opening);
+
+        if (opening) {
+            // Give the browser one frame to lay out the newly visible canvas elements,
+            // then re-create the chart objects with correct pixel dimensions.
+            setTimeout(() => {
+                const entries = this._sectionChartMap[name] || [];
+                entries.forEach(([canvasId, chartType]) => {
+                    const chart = this.createChart(canvasId, chartType);
+                    if (chart) {
+                        this.charts[chartType] = chart;
+                        this.renderChartByType(chartType);
+                    }
+                });
+            }, 50);
+        }
+    },
+
     // Colors
     colors: {
         system: '#00D4AA',
@@ -551,6 +590,7 @@ BYD.performance = {
         
         // Update CPU metrics
         if (data.cpu) {
+            this.updateElement('sumCpu', (data.cpu.system || 0).toFixed(0) + '%');
             this.updateMetric('cpuValue', data.cpu.system, '');
             this.updateMetric('cpuAppValue', data.cpu.app, '');
             this.updateBar('cpuBar', data.cpu.app);  // Show app CPU on bar
@@ -590,6 +630,7 @@ BYD.performance = {
         
         // Update GPU metrics
         if (data.gpu) {
+            this.updateElement('sumGpu', (data.gpu.usage || 0).toFixed(0) + '%');
             this.updateMetric('gpuValue', data.gpu.usage || 0, '');
             this.updateBar('gpuBar', data.gpu.usage || 0);
             this.updateMetric('gpuFreq', (data.gpu.freqMhz ? data.gpu.freqMhz.toFixed(0) : '--'), ' MHz');
@@ -1165,6 +1206,7 @@ BYD.performance = {
         if (current == null && this.socData.history && this.socData.history.length > 0) {
             current = this.socData.history[this.socData.history.length - 1].soc;
         }
+        if (current != null) this.updateElement('sumSoc', current.toFixed(0) + '%');
         this.updateElement('socCurrent', current != null ? current.toFixed(0) + '%' : '--%');
         
         // Current kWh - from latest history point
@@ -1691,6 +1733,19 @@ BYD.performance = {
 
         const c = d.current || {};
         const vs = d.voltageStats || {};
+
+        // Update 12V summary strip
+        if (c.voltage12v) {
+            const v = c.voltage12v;
+            this.updateElement('sum12v', v.toFixed(1) + 'V');
+            const tile = document.getElementById('sumTile12v');
+            if (tile) {
+                tile.classList.remove('volt-ok', 'volt-warn', 'volt-crit');
+                if (v >= 12.4)      tile.classList.add('volt-ok');
+                else if (v >= 12.0) tile.classList.add('volt-warn');
+                else                tile.classList.add('volt-crit');
+            }
+        }
 
         // 12V stats
         this.updateElement('volt12vCurrent', c.voltage12v ? c.voltage12v.toFixed(2) + 'V' : '--V');
