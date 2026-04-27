@@ -80,14 +80,9 @@
 
     <fragment
         android:id="@+id/abrpSettingsFragment"
-        android:name="com.overdrive.app.ui.fragment.WebViewFragment"
+        android:name="com.overdrive.app.ui.fragment.AbrpSettingsFragment"
         android:label="ABRP"
-        tools:layout="@layout/fragment_webview">
-        <argument
-            android:name="page_path"
-            app:argType="string"
-            android:defaultValue="/abrp" />
-    </fragment>
+        tools:layout="@layout/fragment_abrp_settings" />
 
     <fragment
         android:id="@+id/performanceFragment"
