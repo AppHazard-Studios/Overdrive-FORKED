@@ -35,6 +35,15 @@ class WebViewFragment : Fragment() {
     companion object {
         const val ARG_PAGE_PATH = "page_path"
         private const val KEY_SAVED_URL = "saved_url"
+
+        // Per-path WebView cache — survives fragment destroy/recreate so navigating
+        // back to a settings page is instant rather than reloading from scratch.
+        private val webViewCache = HashMap<String, WebView>()
+
+        fun clearCache() {
+            webViewCache.values.forEach { it.destroy() }
+            webViewCache.clear()
+        }
         
         /**
          * JavaScript injected after page load.
@@ -112,6 +121,7 @@ class WebViewFragment : Fragment() {
     private var btnRetry: MaterialButton? = null
     private var currentUrl: String? = null
     private var pageLoadFailed = false
+    private var usingCachedWebView = false
 
     // Pending callback from onShowFileChooser — must be invoked exactly once,
     // with either the selected URIs or null on cancel.
@@ -135,28 +145,47 @@ class WebViewFragment : Fragment() {
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
-    ): View? = inflater.inflate(R.layout.fragment_webview, container, false)
+    ): View? {
+        val view = inflater.inflate(R.layout.fragment_webview, container, false) ?: return null
+        val pagePath = arguments?.getString(ARG_PAGE_PATH) ?: arguments?.getString("page_path") ?: "/"
+        val cached = webViewCache.remove(pagePath)
+        if (cached != null) {
+            val root = view as android.widget.FrameLayout
+            val placeholder = view.findViewById<WebView>(R.id.webView)
+            root.removeView(placeholder)
+            root.addView(cached, 0, placeholder.layoutParams)
+            webView = cached
+            usingCachedWebView = true
+        }
+        return view
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        webView = view.findViewById(R.id.webView)
         loadingOverlay = view.findViewById(R.id.loadingOverlay)
-        errorOverlay = view.findViewById(R.id.errorOverlay)
-        btnRetry = view.findViewById(R.id.btnRetry)
+        errorOverlay   = view.findViewById(R.id.errorOverlay)
+        btnRetry       = view.findViewById(R.id.btnRetry)
         btnRetry?.setOnClickListener { retryLoad() }
 
-        setupWebView()
-        injectAuthCookie()
-
-        currentUrl = savedInstanceState?.getString(KEY_SAVED_URL)
-            ?: ("http://127.0.0.1:${CameraDaemon.HTTP_PORT}" +
-                (arguments?.getString(ARG_PAGE_PATH)
-                    ?: arguments?.getString("page_path")
-                    ?: "/surveillance"))
-
-        loadPage()
+        if (usingCachedWebView) {
+            webView?.onResume()
+            webView?.resumeTimers()
+            showContent()
+            injectAuthCookie()
+            currentUrl = webView?.url
+        } else {
+            webView = view.findViewById(R.id.webView)
+            setupWebView()
+            injectAuthCookie()
+            currentUrl = savedInstanceState?.getString(KEY_SAVED_URL)
+                ?: ("http://127.0.0.1:${CameraDaemon.HTTP_PORT}" +
+                    (arguments?.getString(ARG_PAGE_PATH)
+                        ?: arguments?.getString("page_path")
+                        ?: "/surveillance"))
+            loadPage()
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -653,8 +682,9 @@ class WebViewFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        webView?.onResume()
+        if (!usingCachedWebView) webView?.onResume()
         if (pageLoadFailed) retryLoad()
+        usingCachedWebView = false
     }
 
     override fun onPause() {
@@ -663,16 +693,24 @@ class WebViewFragment : Fragment() {
     }
 
     override fun onDestroyView() {
-        // If a file picker is pending, release its callback so the WebView
-        // doesn't hang onto a dangling handle.
         pendingFileCallback?.onReceiveValue(null)
         pendingFileCallback = null
 
+        val wv = webView
+        if (wv != null && !pageLoadFailed) {
+            val pagePath = arguments?.getString(ARG_PAGE_PATH) ?: arguments?.getString("page_path")
+            if (pagePath != null && webViewCache.size < 6) {
+                wv.onPause()
+                wv.pauseTimers()
+                (wv.parent as? ViewGroup)?.removeView(wv)
+                webViewCache[pagePath] = wv
+                webView = null
+            }
+        }
+
         webView?.let { wv ->
-            // Stop any media playback and clear content before destroying
             wv.loadUrl("about:blank")
             wv.stopLoading()
-            // Remove from parent to prevent leaked window
             (wv.parent as? ViewGroup)?.removeView(wv)
             wv.destroy()
         }

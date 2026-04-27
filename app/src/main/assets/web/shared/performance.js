@@ -1748,10 +1748,31 @@ BYD.performance = {
         }
 
         // 12V stats
-        this.updateElement('volt12vCurrent', c.voltage12v ? c.voltage12v.toFixed(2) + 'V' : '--V');
-        this.updateElement('volt12vMin', vs.min ? vs.min.toFixed(2) + 'V' : '--V');
-        this.updateElement('volt12vMax', vs.max ? vs.max.toFixed(2) + 'V' : '--V');
-        this.updateElement('volt12vAvg', vs.avg ? vs.avg.toFixed(2) + 'V' : '--V');
+        this.updateElement('volt12vCurrent', c.voltage12v ? c.voltage12v.toFixed(2) : '--');
+        this.updateElement('volt12vMin', vs.min ? vs.min.toFixed(2) + ' V' : '-- V');
+        this.updateElement('volt12vMax', vs.max ? vs.max.toFixed(2) + ' V' : '-- V');
+        this.updateElement('volt12vAvg', vs.avg ? vs.avg.toFixed(2) + ' V' : '-- V');
+
+        // 12V battery card — bar + badge + subtitle
+        if (c.voltage12v) {
+            const v = c.voltage12v;
+            const barPct = Math.max(0, Math.min(100, ((v - 10.5) / (14.4 - 10.5)) * 100));
+            const bar = document.getElementById('volt12Bar');
+            if (bar) {
+                bar.style.width = barPct + '%';
+                bar.style.background = v >= 12.4 ? 'linear-gradient(90deg,#00d4aa,#0ea5e9)'
+                    : v >= 12.0 ? '#f59e0b' : '#ef4444';
+            }
+            const badge = document.getElementById('volt12Badge');
+            if (badge) {
+                badge.style.display = '';
+                if (v >= 12.4) { badge.textContent = 'NORMAL';   badge.className = 'gpu-status-badge efficient'; }
+                else if (v >= 12.0) { badge.textContent = 'LOW'; badge.className = 'gpu-status-badge optimal'; }
+                else               { badge.textContent = 'CRITICAL'; badge.className = 'gpu-status-badge critical'; }
+            }
+            const status = c.voltageStatus || (v >= 12.4 ? 'Healthy' : v >= 12.0 ? 'Marginal — check charging' : 'Low — risk of failure');
+            this.updateElement('volt12Status', status);
+        }
 
         // SOH
         const soh = c.soh;
