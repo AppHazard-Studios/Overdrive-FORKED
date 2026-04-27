@@ -11,10 +11,233 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
-        android:paddingBottom="24dp">
+        android:padding="12dp"
+        android:paddingBottom="20dp">
 
-        <!-- ── Row 1: Surveillance + Recording ──────────────────── -->
+        <!-- ── Quick Stats Strip ─────────────────────────────────────── -->
+        <!-- 5 compact tiles: CPU | GPU | MEM | 12V | SOC -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="10dp">
+
+            <!-- CPU tile -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tileStatCpu"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                app:cardBackgroundColor="@color/bg_surface"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/card_border"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp">
+                    <TextView
+                        android:id="@+id/tvStatCpu"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="monospace"
+                        android:fontWeight="700" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="CPU"
+                        android:textColor="@color/text_muted"
+                        android:textSize="9sp"
+                        android:textAllCaps="true"
+                        android:letterSpacing="0.05"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- GPU tile -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tileStatGpu"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                app:cardBackgroundColor="@color/bg_surface"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/card_border"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp">
+                    <TextView
+                        android:id="@+id/tvStatGpu"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="monospace"
+                        android:fontWeight="700" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="GPU"
+                        android:textColor="@color/text_muted"
+                        android:textSize="9sp"
+                        android:textAllCaps="true"
+                        android:letterSpacing="0.05"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- MEM tile -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tileStatMem"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                app:cardBackgroundColor="@color/bg_surface"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/card_border"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp">
+                    <TextView
+                        android:id="@+id/tvStatMem"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="monospace"
+                        android:fontWeight="700" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="MEM"
+                        android:textColor="@color/text_muted"
+                        android:textSize="9sp"
+                        android:textAllCaps="true"
+                        android:letterSpacing="0.05"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- 12V tile (stroke color updated dynamically) -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tileStatVolt"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:layout_marginEnd="4dp"
+                app:cardBackgroundColor="@color/bg_surface"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/card_border"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp">
+                    <TextView
+                        android:id="@+id/tvStatVolt"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:fontFamily="monospace"
+                        android:fontWeight="700" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="12V"
+                        android:textColor="@color/text_muted"
+                        android:textSize="9sp"
+                        android:textAllCaps="true"
+                        android:letterSpacing="0.05"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- SOC tile -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tileStatSoc"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                app:cardBackgroundColor="@color/bg_surface"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/card_border"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:paddingStart="4dp"
+                    android:paddingEnd="4dp">
+                    <TextView
+                        android:id="@+id/tvStatSoc"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="--"
+                        android:textColor="@color/status_success"
+                        android:textSize="14sp"
+                        android:fontFamily="monospace"
+                        android:fontWeight="700" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="SOC"
+                        android:textColor="@color/text_muted"
+                        android:textSize="9sp"
+                        android:textAllCaps="true"
+                        android:letterSpacing="0.05"
+                        android:layout_marginTop="2dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+
+        <!-- ── Row 1: Surveillance + Recording ──────────────────────── -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -25,32 +248,31 @@
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardSurveillance"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_marginEnd="5dp"
                 app:cardBackgroundColor="@color/bg_surface"
-                app:cardCornerRadius="14dp"
+                app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/card_border"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:padding="12dp">
 
-                    <!-- Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:layout_marginBottom="10dp">
+                        android:layout_marginBottom="8dp">
 
                         <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
                             android:src="@drawable/ic_sentry"
                             app:tint="@color/brand_primary"
                             android:contentDescription="Surveillance" />
@@ -59,12 +281,11 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginStart="6dp"
                             android:text="Surveillance"
                             android:textColor="@color/text_muted"
-                            android:textSize="12sp" />
+                            android:textSize="11sp" />
 
-                        <!-- Status pill -->
                         <TextView
                             android:id="@+id/tvSurvPill"
                             android:layout_width="wrap_content"
@@ -73,10 +294,10 @@
                             android:textColor="@color/text_muted"
                             android:textSize="10sp"
                             android:fontFamily="sans-serif-medium"
-                            android:paddingStart="8dp"
-                            android:paddingEnd="8dp"
-                            android:paddingTop="3dp"
-                            android:paddingBottom="3dp"
+                            android:paddingStart="7dp"
+                            android:paddingEnd="7dp"
+                            android:paddingTop="2dp"
+                            android:paddingBottom="2dp"
                             android:background="@drawable/status_pill_bg" />
 
                     </LinearLayout>
@@ -87,54 +308,52 @@
                         android:layout_height="wrap_content"
                         android:text="-- events today"
                         android:textColor="@color/text_primary"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:fontFamily="sans-serif-medium" />
 
                     <TextView
                         android:id="@+id/tvSurvLastDetection"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Last detection: --"
+                        android:layout_marginTop="3dp"
+                        android:text="No detections today"
                         android:textColor="@color/text_muted"
                         android:textSize="11sp"
                         android:ellipsize="end"
                         android:singleLine="true" />
 
                 </LinearLayout>
-
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Recording card -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/cardRecording"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
                 android:layout_marginStart="5dp"
                 app:cardBackgroundColor="@color/bg_surface"
-                app:cardCornerRadius="14dp"
+                app:cardCornerRadius="12dp"
                 app:cardElevation="0dp"
                 app:strokeColor="@color/card_border"
                 app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:padding="12dp">
 
-                    <!-- Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:layout_marginBottom="10dp">
+                        android:layout_marginBottom="8dp">
 
                         <ImageView
-                            android:layout_width="16dp"
-                            android:layout_height="16dp"
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
                             android:src="@drawable/ic_recording"
                             app:tint="@color/brand_primary"
                             android:contentDescription="Recording" />
@@ -143,10 +362,10 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:layout_marginStart="8dp"
+                            android:layout_marginStart="6dp"
                             android:text="Recording"
                             android:textColor="@color/text_muted"
-                            android:textSize="12sp" />
+                            android:textSize="11sp" />
 
                         <TextView
                             android:id="@+id/tvRecPill"
@@ -156,10 +375,10 @@
                             android:textColor="@color/text_muted"
                             android:textSize="10sp"
                             android:fontFamily="sans-serif-medium"
-                            android:paddingStart="8dp"
-                            android:paddingEnd="8dp"
-                            android:paddingTop="3dp"
-                            android:paddingBottom="3dp"
+                            android:paddingStart="7dp"
+                            android:paddingEnd="7dp"
+                            android:paddingTop="2dp"
+                            android:paddingBottom="2dp"
                             android:background="@drawable/status_pill_bg" />
 
                     </LinearLayout>
@@ -170,22 +389,19 @@
                         android:layout_height="wrap_content"
                         android:text="-- free"
                         android:textColor="@color/text_primary"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:fontFamily="sans-serif-medium" />
 
-                    <!-- Storage bar -->
                     <FrameLayout
                         android:layout_width="match_parent"
-                        android:layout_height="5dp"
-                        android:layout_marginTop="8dp"
+                        android:layout_height="4dp"
+                        android:layout_marginTop="7dp"
                         android:background="@color/bg_elevated">
-
                         <View
                             android:id="@+id/viewRecStorageBar"
                             android:layout_width="0dp"
-                            android:layout_height="5dp"
+                            android:layout_height="4dp"
                             android:background="@color/brand_primary" />
-
                     </FrameLayout>
 
                     <TextView
@@ -198,545 +414,251 @@
                         android:textSize="11sp" />
 
                 </LinearLayout>
-
             </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
 
-        <!-- ── Row 2: Daemon Health ──────────────────────────────── -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardDaemonHealth"
+        <!-- ── Row 2: Trips + Daemon Health ──────────────────────────── -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            app:cardBackgroundColor="@color/bg_surface"
-            app:cardCornerRadius="14dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/card_border"
-            app:strokeWidth="1dp">
+            android:orientation="horizontal">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="14dp">
+            <!-- Trips 7-day summary card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardTrips"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="55"
+                android:layout_marginEnd="5dp"
+                app:cardBackgroundColor="@color/bg_surface"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/card_border"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_daemons"
-                        app:tint="@color/text_muted"
-                        android:contentDescription="Daemons" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        android:text="Daemons"
-                        android:textColor="@color/text_muted"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/tvDaemonCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0/5"
-                        android:textColor="@color/text_muted"
-                        android:textSize="13sp"
-                        android:fontFamily="sans-serif-medium" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text=" running"
-                        android:textColor="@color/text_muted"
-                        android:textSize="13sp" />
-
-                </LinearLayout>
-
-                <!-- Error row — shown only when a daemon has errors -->
-                <TextView
-                    android:id="@+id/tvDaemonError"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text=""
-                    android:textColor="@color/status_danger"
-                    android:textSize="12sp"
-                    android:visibility="gone" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ── Row 3: Vehicle / 12V ──────────────────────────────── -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardVehicle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="10dp"
-            app:cardBackgroundColor="@color/bg_surface"
-            app:cardCornerRadius="14dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/card_border"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="14dp">
-
-                <!-- Header row -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:layout_marginBottom="12dp">
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_performance"
-                        app:tint="@color/text_muted"
-                        android:contentDescription="Vehicle" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        android:text="Vehicle"
-                        android:textColor="@color/text_muted"
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/tvThermalStatus"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="--"
-                        android:textColor="@color/text_muted"
-                        android:textSize="12sp" />
-
-                </LinearLayout>
-
-                <!-- 12V + SOC row -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <!-- 12V — large, prominent -->
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="12V Battery"
-                            android:textColor="@color/text_muted"
-                            android:textSize="11sp"
-                            android:layout_marginBottom="2dp" />
-
-                        <TextView
-                            android:id="@+id/tv12v"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="-- V"
-                            android:textColor="@color/text_primary"
-                            android:textSize="32sp"
-                            android:fontFamily="monospace"
-                            android:fontWeight="700" />
-
-                    </LinearLayout>
-
-                    <!-- Divider -->
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="48dp"
-                        android:background="@color/card_border"
-                        android:layout_marginStart="8dp"
-                        android:layout_marginEnd="16dp" />
-
-                    <!-- SOC + extra stats -->
-                    <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:orientation="vertical"
-                        android:gravity="end">
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical"
-                            android:layout_marginBottom="4dp">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="SOC  "
-                                android:textColor="@color/text_muted"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tvSoc"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="--%"
-                                android:textColor="@color/status_success"
-                                android:textSize="20sp"
-                                android:fontFamily="monospace"
-                                android:fontWeight="600" />
-
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical">
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Range  "
-                                android:textColor="@color/text_muted"
-                                android:textSize="12sp" />
-
-                            <TextView
-                                android:id="@+id/tvRange"
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="-- km"
-                                android:textColor="@color/text_primary"
-                                android:textSize="14sp"
-                                android:fontFamily="monospace" />
-
-                        </LinearLayout>
-
-                    </LinearLayout>
-
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ── Row 4: Trips quick-link ───────────────────────────── -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardTrips"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="14dp"
-            app:cardBackgroundColor="@color/bg_surface"
-            app:cardCornerRadius="14dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/card_border"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="14dp">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:src="@drawable/ic_trips"
-                    app:tint="@color/text_muted"
-                    android:contentDescription="Trips" />
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:layout_marginStart="10dp"
-                    android:text="Trips"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:fontFamily="sans-serif-medium" />
-
-                <TextView
-                    android:id="@+id/tvTripsHint"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="View history"
-                    android:textColor="@color/text_muted"
-                    android:textSize="12sp" />
-
-                <ImageView
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
-                    android:layout_marginStart="6dp"
-                    android:src="@drawable/ic_arrow_forward"
-                    app:tint="@color/text_muted"
-                    android:contentDescription="Go" />
-
-            </LinearLayout>
-
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- ── Remote Access (collapsible) ──────────────────────── -->
-        <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardRemoteAccess"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="@color/bg_surface"
-            app:cardCornerRadius="14dp"
-            app:cardElevation="0dp"
-            app:strokeColor="@color/card_border"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical">
-
-                <!-- Collapse toggle row -->
-                <LinearLayout
-                    android:id="@+id/rowRemoteAccessHeader"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="14dp"
-                    android:background="?attr/selectableItemBackground">
-
-                    <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_sentry"
-                        app:tint="@color/text_muted"
-                        android:contentDescription="Remote Access" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        android:text="Remote Access"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="13sp"
-                        android:fontFamily="sans-serif-medium" />
-
-                    <ImageView
-                        android:id="@+id/ivRemoteAccessChevron"
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
-                        android:src="@drawable/ic_arrow_forward"
-                        app:tint="@color/text_muted"
-                        android:contentDescription="Expand"
-                        android:rotation="90" />
-
-                </LinearLayout>
-
-                <!-- Collapsible body -->
-                <LinearLayout
-                    android:id="@+id/layoutRemoteAccessBody"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:orientation="vertical"
-                    android:padding="14dp"
-                    android:paddingTop="0dp"
-                    android:visibility="gone">
+                    android:padding="12dp">
 
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:background="@color/card_border"
-                        android:layout_marginBottom="12dp" />
-
-                    <!-- Access Mode row -->
+                    <!-- Header -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:gravity="center_vertical"
                         android:orientation="horizontal"
-                        android:layout_marginBottom="12dp">
+                        android:layout_marginBottom="10dp">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:src="@drawable/ic_trips"
+                            app:tint="@color/brand_primary"
+                            android:contentDescription="Trips" />
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Access Mode"
+                            android:layout_marginStart="6dp"
+                            android:text="Trips · 7 days"
                             android:textColor="@color/text_muted"
-                            android:textSize="12sp" />
-
-                        <com.google.android.material.switchmaterial.SwitchMaterial
-                            android:id="@+id/switchAccessMode"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content" />
+                            android:textSize="11sp" />
 
                         <TextView
-                            android:id="@+id/tvAccessMode"
-                            android:layout_width="56dp"
+                            android:id="@+id/tvTripsViewAll"
+                            android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="4dp"
-                            android:text="PRIVATE"
+                            android:text="View all"
                             android:textColor="@color/brand_primary"
-                            android:textSize="12sp"
-                            android:textStyle="bold" />
+                            android:textSize="11sp" />
+
+                        <ImageView
+                            android:layout_width="12dp"
+                            android:layout_height="12dp"
+                            android:layout_marginStart="3dp"
+                            android:src="@drawable/ic_arrow_forward"
+                            app:tint="@color/brand_primary"
+                            android:contentDescription="Go" />
 
                     </LinearLayout>
 
-                    <!-- URL + Code two-column -->
+                    <!-- Stats row: trips | distance | score -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
 
-                        <!-- Tunnel URL -->
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="match_parent"
+                            android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:orientation="vertical"
-                            android:layout_marginEnd="6dp"
-                            android:background="@color/bg_elevated"
-                            android:padding="10dp">
-
+                            android:gravity="center">
+                            <TextView
+                                android:id="@+id/tvTripsCount"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textColor="@color/text_primary"
+                                android:textSize="20sp"
+                                android:fontFamily="monospace"
+                                android:fontWeight="700" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Tunnel URL"
+                                android:text="TRIPS"
                                 android:textColor="@color/text_muted"
-                                android:textSize="11sp"
-                                android:layout_marginBottom="6dp" />
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:gravity="center_vertical"
-                                android:orientation="horizontal">
-
-                                <View
-                                    android:id="@+id/urlStatusDot"
-                                    android:layout_width="8dp"
-                                    android:layout_height="8dp"
-                                    android:background="@drawable/status_dot_offline" />
-
-                                <TextView
-                                    android:id="@+id/tvCurrentUrl"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginStart="6dp"
-                                    android:layout_weight="1"
-                                    android:ellipsize="middle"
-                                    android:singleLine="true"
-                                    android:text="No tunnel running"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="11sp"
-                                    android:fontFamily="monospace" />
-
-                                <ImageButton
-                                    android:id="@+id/btnCopyUrl"
-                                    android:layout_width="26dp"
-                                    android:layout_height="26dp"
-                                    android:layout_marginStart="4dp"
-                                    android:background="?attr/selectableItemBackgroundBorderless"
-                                    android:contentDescription="Copy URL"
-                                    android:src="@drawable/ic_copy"
-                                    app:tint="@color/text_muted" />
-
-                            </LinearLayout>
-
+                                android:textSize="10sp"
+                                android:textAllCaps="true"
+                                android:layout_marginTop="2dp" />
                         </LinearLayout>
 
-                        <!-- Access Code -->
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="40dp"
+                            android:background="@color/card_border"
+                            android:layout_gravity="center_vertical" />
+
                         <LinearLayout
                             android:layout_width="0dp"
-                            android:layout_height="match_parent"
+                            android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:orientation="vertical"
-                            android:layout_marginStart="6dp"
-                            android:background="@color/bg_elevated"
-                            android:padding="10dp">
-
+                            android:gravity="center">
+                            <TextView
+                                android:id="@+id/tvTripsDistance"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="--"
+                                android:textColor="@color/text_primary"
+                                android:textSize="20sp"
+                                android:fontFamily="monospace"
+                                android:fontWeight="700" />
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Access Code"
+                                android:text="KM"
                                 android:textColor="@color/text_muted"
-                                android:textSize="11sp"
-                                android:layout_marginBottom="6dp" />
+                                android:textSize="10sp"
+                                android:textAllCaps="true"
+                                android:layout_marginTop="2dp" />
+                        </LinearLayout>
 
-                            <LinearLayout
-                                android:layout_width="match_parent"
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="40dp"
+                            android:background="@color/card_border"
+                            android:layout_gravity="center_vertical" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+                            <TextView
+                                android:id="@+id/tvTripsScore"
+                                android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:gravity="center_vertical"
-                                android:orientation="horizontal">
-
-                                <TextView
-                                    android:id="@+id/tvDeviceToken"
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:fontFamily="monospace"
-                                    android:text="••••••••"
-                                    android:textColor="@color/text_primary"
-                                    android:textSize="14sp"
-                                    android:letterSpacing="0.1"
-                                    android:singleLine="true" />
-
-                                <ImageView
-                                    android:id="@+id/btnToggleToken"
-                                    android:layout_width="24dp"
-                                    android:layout_height="24dp"
-                                    android:layout_marginStart="4dp"
-                                    android:padding="2dp"
-                                    android:src="@android:drawable/ic_menu_view"
-                                    android:contentDescription="Show/Hide Token"
-                                    android:background="?attr/selectableItemBackgroundBorderless"
-                                    app:tint="@color/text_muted" />
-
-                                <ImageView
-                                    android:id="@+id/btnCopyToken"
-                                    android:layout_width="24dp"
-                                    android:layout_height="24dp"
-                                    android:layout_marginStart="2dp"
-                                    android:padding="2dp"
-                                    android:src="@drawable/ic_copy"
-                                    android:contentDescription="Copy Token"
-                                    android:background="?attr/selectableItemBackgroundBorderless"
-                                    app:tint="@color/text_muted" />
-
-                                <com.google.android.material.button.MaterialButton
-                                    android:id="@+id/btnRegenerateToken"
-                                    style="@style/Widget.Overdrive.Button.Text"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="28dp"
-                                    android:layout_marginStart="2dp"
-                                    android:text="Regen"
-                                    android:textColor="@color/brand_primary"
-                                    android:textSize="10sp" />
-
-                            </LinearLayout>
-
+                                android:text="--"
+                                android:textColor="@color/status_success"
+                                android:textSize="20sp"
+                                android:fontFamily="monospace"
+                                android:fontWeight="700" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="SCORE"
+                                android:textColor="@color/text_muted"
+                                android:textSize="10sp"
+                                android:textAllCaps="true"
+                                android:layout_marginTop="2dp" />
                         </LinearLayout>
 
                     </LinearLayout>
 
                 </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-            </LinearLayout>
+            <!-- Daemon Health card -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardDaemonHealth"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="45"
+                android:layout_marginStart="5dp"
+                app:cardBackgroundColor="@color/bg_surface"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/card_border"
+                app:strokeWidth="1dp">
 
-        </com.google.android.material.card.MaterialCardView>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:layout_marginBottom="8dp">
+
+                        <ImageView
+                            android:layout_width="14dp"
+                            android:layout_height="14dp"
+                            android:src="@drawable/ic_daemons"
+                            app:tint="@color/text_muted"
+                            android:contentDescription="Daemons" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="6dp"
+                            android:text="Daemons"
+                            android:textColor="@color/text_muted"
+                            android:textSize="11sp" />
+
+                        <TextView
+                            android:id="@+id/tvDaemonCount"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="0/5"
+                            android:textColor="@color/text_muted"
+                            android:textSize="16sp"
+                            android:fontFamily="monospace"
+                            android:fontWeight="700" />
+
+                    </LinearLayout>
+
+                    <!-- Per-daemon status dots row -->
+                    <LinearLayout
+                        android:id="@+id/layoutDaemonDots"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal" />
+
+                    <!-- Error text (hidden when no errors) -->
+                    <TextView
+                        android:id="@+id/tvDaemonError"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:text=""
+                        android:textColor="@color/status_danger"
+                        android:textSize="11sp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
 
     </LinearLayout>
 
