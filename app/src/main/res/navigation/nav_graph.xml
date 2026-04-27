@@ -19,14 +19,9 @@
 
     <fragment
         android:id="@+id/recordingFragment"
-        android:name="com.overdrive.app.ui.fragment.WebViewFragment"
-        android:label="Recording"
-        tools:layout="@layout/fragment_webview">
-        <argument
-            android:name="page_path"
-            app:argType="string"
-            android:defaultValue="/recording" />
-    </fragment>
+        android:name="com.overdrive.app.ui.fragment.RecordingSettingsFragment"
+        android:label="Recording Settings"
+        tools:layout="@layout/fragment_recording_settings" />
 
     <fragment
         android:id="@+id/adbConsoleFragment"
