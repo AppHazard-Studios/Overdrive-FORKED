@@ -55,6 +55,24 @@
                 android:background="@drawable/bg_pill"
                 tools:text="SENTRY" />
 
+            <!-- Detection type badge — stacked below type badge -->
+            <TextView
+                android:id="@+id/tvDetectionBadge"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:layout_constraintTop_toBottomOf="@id/tvTypeBadge"
+                app:layout_constraintStart_toStartOf="parent"
+                android:layout_marginStart="6dp"
+                android:layout_marginTop="3dp"
+                android:paddingHorizontal="6dp"
+                android:paddingVertical="2dp"
+                android:textSize="9sp"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/bg_base"
+                android:background="@drawable/bg_pill"
+                android:visibility="gone"
+                tools:text="PERSON" />
+
             <!-- Delete button — top-right corner of thumbnail -->
             <ImageButton
                 android:id="@+id/btnDelete"
