@@ -24,13 +24,17 @@ Both remotes are already configured. `upstream-sync` is a local tracking branch 
 
 | Branch | Purpose |
 |---|---|
-| `main` | Fork base — includes all upstream v10 changes plus all fork customizations. |
+| `main` | Fork base — full feature set, all upstream v10 changes plus fork customizations. |
+| `lite/main` | **Stripped-back product variant** — native UI only, no daemons/features we don't use. This is the active development target. See "Current Focus" section. |
 | `upstream-sync` | Tracks `upstream/main`. For comparison only, never pushed. |
-| `feature/*` | Fork-specific features |
-| `fix/*` | Fork-specific bug fixes |
+| `feature/*` | Features targeting `main` |
+| `lite/feature-*` | Features targeting `lite/main` — use prefix `lite/` to distinguish |
+| `fix/*` | Bug fixes (apply to whichever branch is relevant) |
 | `contrib/*` | Upstream contribution candidates — cherry-picked from feature/* |
 
-**Never commit directly to `main`.** Always branch first.
+**Never commit directly to `main` or `lite/main`.** Always branch first.
+
+`lite/main` was branched from `main` and diverges intentionally — do not merge `main` into `lite/main` without reviewing what you're pulling in. Cherry-pick specific commits instead.
 
 ---
 
@@ -110,22 +114,24 @@ These are all in the daemon layer which runs as a separate process under a diffe
 ### Two Planes — Understand Which One You're In Before Writing Any Code
 
 **UI Layer** (Kotlin + Jetpack Navigation + WebView)
-- Most screens are HTML/JS served by the embedded HTTP server, rendered in `WebViewFragment`
+- On `main`: most settings screens are HTML/JS WebViews
+- On `lite/main`: **all screens are native Kotlin** — no WebViews. See "Native-First Mandate" below.
 - Safe to test in Android emulator
-- This is where almost all current work happens
 
 **Daemon Layer** (Java, launched via `app_process` over ADB TCP)
 - Runs independently of the UI at ports 8080, 19876–19878
 - Cannot be tested in emulator — requires the physical BYD Atto 3
 - Communicates with UI via TCP sockets only (no Android Binder — different UIDs)
 
-| Daemon | Role |
-|---|---|
-| `CameraDaemon.java` | GPU pipeline, HTTP server, recording, telemetry — DO NOT MODIFY |
-| `AccSentryDaemon.java` | ACC/ignition monitoring |
-| `SentryDaemon.java` | UID 1000, ACC lock, network UID whitelisting |
-| `TelegramBotDaemon.java` | Telegram alerts |
-| `GlobalProxyDaemon.java` | sing-box VLESS proxy for BYD SIM |
+| Daemon | Role | `lite/main` |
+|---|---|---|
+| `CameraDaemon.java` | GPU pipeline, HTTP server, recording, telemetry — DO NOT MODIFY | ✅ Keep |
+| `AccSentryDaemon.java` | ACC/ignition monitoring | ✅ Keep |
+| `SentryDaemon.java` | UID 1000, ACC lock, network UID whitelisting | ✅ Keep |
+| `TelegramBotDaemon.java` | Telegram alerts | ❌ Remove |
+| `GlobalProxyDaemon.java` | sing-box VLESS proxy for BYD SIM | ❌ Remove |
+
+**Cloudflare tunnel and Zrok tunnel** are also removed from `lite/main` — these are managed as sub-processes by `CloudflaredController.kt` and `ZrokController.kt`, not Java daemons. Both the daemon management code and their UI entries are stripped.
 
 ### BYD Hardware Access
 BYD SDK is not public. App bridges via:
@@ -160,50 +166,56 @@ Playback of individual camera angles is done at the UI layer: one `MediaPlayer` 
 
 ---
 
-## ⚠️ Two Separate UIs — Read This Before Touching Any UI File
+## ⚠️ Screen Map — Read Before Touching Any UI File
 
-### Android On-Screen UI — Screen-by-File Mapping
+### Current state (`main` branch)
 
-Before editing anything, look up the screen here. Do not assume. Do not guess.
-
-| Screen | Implementation | Files to edit |
+| Screen | Implementation | Files |
 |---|---|---|
-| **Dashboard** | **NATIVE Kotlin** — NOT HTML | `DashboardFragment.kt`, `fragment_dashboard.xml` |
-| **Events / Recordings** | **NATIVE Kotlin** — NOT HTML | `RecordingLibraryFragment.kt`, `RecordingAdapter.kt`, `item_recording.xml`, `fragment_recording_library.xml`, `RecordingFile.kt` |
-| **Video Player** | **NATIVE Kotlin** — NOT HTML | `MultiCameraPlayerFragment.kt`, `fragment_multi_camera_player.xml`, `MultiCameraGLView.kt` |
-| **Remote Access** | **NATIVE Kotlin** — NOT HTML | `RemoteAccessFragment.kt`, `fragment_remote_access.xml` |
-| Recording Settings | WebView → `local/recording.html` | `assets/web/local/recording.html`, `assets/web/shared/recording.js` |
-| Surveillance Settings | WebView → `local/surveillance.html` | `assets/web/local/surveillance.html`, `assets/web/shared/surveillance.js` |
-| Performance | WebView → `local/performance.html` | `assets/web/local/performance.html`, `assets/web/shared/performance.js` |
-| MQTT | WebView → `local/mqtt.html` | `assets/web/local/mqtt.html`, `assets/web/shared/mqtt.js` |
-| ABRP | WebView → `local/abrp.html` | `assets/web/local/abrp.html` |
-| Trips | WebView → `local/trips.html` | `assets/web/local/trips.html` |
+| **Dashboard** | Native Kotlin | `DashboardFragment.kt`, `fragment_dashboard.xml` |
+| **Events / Recordings** | Native Kotlin | `RecordingLibraryFragment.kt`, `RecordingAdapter.kt`, `item_recording.xml`, `fragment_recording_library.xml` |
+| **Video Player** | Native Kotlin | `MultiCameraPlayerFragment.kt`, `fragment_multi_camera_player.xml`, `MultiCameraGLView.kt` |
+| **Remote Access** | Native Kotlin | `RemoteAccessFragment.kt`, `fragment_remote_access.xml` |
+| Recording Settings | WebView | `assets/web/local/recording.html`, `assets/web/shared/recording.js` |
+| Surveillance Settings | WebView | `assets/web/local/surveillance.html`, `assets/web/shared/surveillance.js` |
+| Performance | WebView | `assets/web/local/performance.html`, `assets/web/shared/performance.js` |
+| MQTT | WebView | `assets/web/local/mqtt.html`, `assets/web/shared/mqtt.js` |
+| ABRP | WebView | `assets/web/local/abrp.html` |
+| Trips | WebView | `assets/web/local/trips.html` |
 
-**The events page is native Kotlin. `assets/web/local/events.html` and `assets/web/shared/events.js` are for the remote browser UI only. Editing those files has zero effect on what the user sees in the Android app.**
+### Target state (`lite/main` branch)
 
-#### Why the events page is native
-`WebViewFragment.shouldOverrideUrlLoading()` intercepts any navigation to `/events` or `/events.html` and redirects to `RecordingLibraryFragment` via `R.id.eventsFragment`. The HTML page is never loaded on-screen.
+All screens native Kotlin. WebViews completely eliminated. Remote web UI stripped. No `assets/web/` files served.
 
-#### Mandatory pre-coding check
-Before editing any file for an on-screen UI task:
-1. Identify the screen from the table above
-2. If it's NATIVE: edit the Kotlin/XML files only
-3. If it's WebView: confirm the page isn't intercepted in `WebViewFragment.shouldOverrideUrlLoading()`
-4. Never edit `assets/web/` files for on-screen Android UI work unless the screen is confirmed WebView
+| Screen | Status | Notes |
+|---|---|---|
+| Dashboard | ✅ Native — fix bugs | See bug list in Current Focus |
+| Events / Recordings | ✅ Native — keep | Fix slow load if present |
+| Video Player | ✅ Native — keep | No changes needed |
+| Recording Settings | 🔨 Migrate to native | Replace WebView with native fragment |
+| Surveillance Settings | 🔨 Migrate to native | Replace WebView with native fragment |
+| Performance | 🔨 Migrate to native | Replace WebView with native fragment |
+| ABRP | 🔨 Migrate to native | Replace WebView with native fragment — **keep feature** |
+| Logs | 🔨 Migrate to native | Add enable/disable logging toggle |
+| Remote Access | ❌ Remove | Entire screen + tunnels gone |
+| MQTT | ❌ Remove | Entire screen + daemon support gone |
+| Trips | ❌ Remove | Entire screen gone |
+| Telegram Settings | ❌ Remove | Entire screen + daemon gone |
+| Traffic Monitor | ❌ Remove from nav | Remove sidebar entry; underlying data can stay |
+
+**The events/video player pages have always been native. `assets/web/local/events.html` and related files are remote browser UI only — never loaded on-screen.**
+
+`WebViewFragment.shouldOverrideUrlLoading()` intercepts `/events` and `/events.html` and redirects to `RecordingLibraryFragment`. This remains on `lite/main`.
 
 ---
 
-### Remote Web UI (browser-based) — NOT current priority
+### Remote Web UI — Stripped on `lite/main`
 
-- Accessed via browser on LAN / Cloudflare tunnel / Zrok
-- Served by `HttpServer.java` — extracts `assets/web/` to `/data/local/tmp/web/` at daemon start
-- `assets/web/shared/events.js`, `assets/web/local/events.html` are the REMOTE events page
-- Cannot be verified in emulator — requires physical car with daemon running
-- When remote UI changes are needed: update both the native layer AND `assets/web/` files separately
-
-**Rule: A change to `assets/web/` does NOT affect the Android on-screen UI for the events or video player screens. A change to Kotlin/XML does NOT affect the remote browser UI. They are independent.**
-
-**Web asset caching note:** `HttpServer.java` extracts `assets/web/` to `/data/local/tmp/web/` once at daemon start. If that directory exists from a prior install, old files are served. After updating web assets, either `adb shell rm -rf /data/local/tmp/web` or do a full uninstall + reinstall to force re-extraction.
+The entire remote web UI (`assets/web/`) is being stripped on `lite/main`:
+- No Cloudflare/Zrok tunnels → no remote access
+- `HttpServer.java` still runs (it serves the daemon API that the native UI polls) — do not remove it
+- The web asset extraction from `HttpServer.java` can be disabled or left inert once no assets are bundled
+- Do NOT remove `HttpServer.java` itself — the native UI depends on its API endpoints
 
 ---
 
@@ -261,88 +273,149 @@ If this is ever wanted: implement `StatusOverlayService` as a foreground service
 
 ---
 
-## Current Focus — Performance Optimisation
+## Current Focus — Native Lite Rebuild (`lite/main`)
 
-**Goal:** Reduce CPU and GPU load without sacrificing reliable, accurate, high-quality recording.
+**Goal:** Strip the app down to exactly what's used. All screens go native Kotlin. Remove every unused daemon, page, and dependency. Apply a consistent modern design system throughout.
 
-The recording pipeline is the primary constraint. Everything else is secondary to it. Any change that risks dropped frames, encoder stalls, or reduced detection accuracy must be rejected regardless of the CPU saving.
-
-### What "performance" means here
-
-- **CPU**: reducing background work, poll frequency, unnecessary wakeups, GC pressure
-- **GPU**: reducing per-frame shader work, unnecessary texture sampling, off-screen render passes
-- **Thermal**: keeping the head unit cool enough that Android doesn't throttle under sustained load (recording + sentry simultaneously is the worst case)
-- **Not**: reducing recording resolution, bitrate, or detection sensitivity — these are product requirements, not variables
-
-### Where the load actually comes from
-
-**GPU pipeline (on-car only, DO NOT MODIFY files):**
-- `GpuMosaicRecorder` — composes the 5120×960 BYD strip into a 2560×1920 2×2 grid each frame at ~5.5fps via MediaCodec H.264
-- `GpuDownscaler` — downsamples to 320×240 @ 2fps for the surveillance pipeline
-- `MotionPipelineV2` — 6-stage C++/NEON filter per quadrant at 2fps via JNI
-
-**CPU (daemon):**
-- `AccSentryDaemon` wake polling interval when parked
-- HTTP server request handling (mostly negligible)
-- Telemetry sampling at ~5fps alongside recording
-
-**CPU (UI layer — legitimate targets):**
-- `DashboardFragment` HTTP polling (currently every 60s — already conservative)
-- WebView JS polling timers on settings pages (paused when not visible via WebView cache)
-- `RecordingViewModel` storage stat polling
-- Any background timers in `MainActivity`
-
-### Legitimate performance levers (UI layer, safe to change)
-
-| Area | What to change | Expected gain |
-|---|---|---|
-| Recording config | H.264 bitrate, GOP size, profile/level in recording settings | Storage + encoder CPU |
-| Surveillance zones | Disable quadrants with no useful FOV (e.g. rear-only sentry) | MotionPipelineV2 cost scales with active quadrants |
-| Dashboard poll interval | Currently 60s — can increase if metrics feel stale | Minor; already low |
-| WebView poll intervals | Each settings page has its own JS polling rate — audit and raise floors | Reduces daemon HTTP wakeups |
-| AccSentryDaemon wake interval | Tune the parked-mode polling cadence | CPU when parked overnight |
-
-### Approach for any performance change
-
-1. Read the existing code to understand the current cost before proposing a change
-2. Estimate the gain — "reduces from N to M calls per minute" is more useful than "should be faster"
-3. Changes to DO NOT MODIFY files are off the table regardless of the gain
-4. All daemon-layer changes require on-car verification — they cannot be tested in the emulator
-5. After a change, the on-car test must confirm no regression in recording continuity or event detection
+The recording pipeline is sacred — nothing changes there. UI and feature decisions are the target.
 
 ---
 
-## v10 Port — Unverified Items (On-Car Only)
+### What We're Keeping
 
-These were implemented in code but not yet verified on the physical Atto 3. They are lower priority now that performance is the focus, but should be confirmed when next deploying.
+| Feature | Notes |
+|---|---|
+| Recording (camera, storage, events, playback) | Core feature — no changes to pipeline |
+| Surveillance / Sentry | Core feature — keep full settings |
+| ABRP (Better Route Planner) | Keep — migrate from WebView to native |
+| Performance monitoring | Keep — migrate from WebView to native |
+| Logs | Keep — migrate to native, add enable/disable toggle |
+| Recording Settings | Keep — migrate from WebView to native |
+| Surveillance Settings | Keep — migrate from WebView to native |
+| Dashboard | Keep — fix existing bugs first |
 
-### Camera Reconfiguration Flow
+### What We're Removing
 
-**State:** Wired but untested on physical hardware.
-
-`onReconfigureCameraClicked()` in `MainActivity.kt` clears the saved camera probe config via `UnifiedConfigManager`, kills the daemon via `AdbDaemonLauncher`, and triggers auto-restart with full camera probe. Verify:
-- `dialog_setup_guide.xml` renders correctly in landscape on the DiLink screen
-- Clearing probe config and restarting correctly triggers the camera identification flow
-- Camera quad labels (FRONT/RIGHT/REAR/LEFT) remain accurate — they are hardcoded to the fixed BYD HAL mosaic layout and do not change with reconfiguration
-
-**Priority:** Low — current camera config is working on the test device. Only needed if feeds appear swapped after a firmware update or different trim.
-
-### Multi-Camera UV Calibration
-
-`MultiCameraGLView.kt` UV coordinates were derived from code inspection, not confirmed on-car. If any feed appears vertically inverted, swap `v0`/`v1` for that camera entry in the `CameraView` enum.
+| Feature | What to delete |
+|---|---|
+| Telegram bot | `TelegramBotDaemon.java`, `TelegramDaemonController.kt`, Telegram settings screen, all nav entries |
+| Singbox / GlobalProxy | `GlobalProxyDaemon.java`, `SingboxController.kt`, `SingboxLauncher.kt`, nav entries |
+| Cloudflare tunnel | `CloudflaredController.kt`, nav entries, Remote Access screen tunnels section |
+| Zrok tunnel | `ZrokController.kt`, nav entries, Remote Access screen tunnels section |
+| Remote Access screen | `RemoteAccessFragment.kt`, `fragment_remote_access.xml`, nav entry |
+| MQTT | `MqttConnectionManager.java`, `MqttPublisherService.java`, MQTT settings screen, nav entry |
+| Trip analysis | Trips screen, nav entry — underlying `TripDatabase` may stay if other features use it |
+| Traffic monitor | Remove from sidebar nav only — the underlying monitor can stay dormant |
+| All WebView screens | Replace each with native Kotlin before shipping `lite/main` |
+| Remote web UI assets | `assets/web/` — strip once all native screens are complete |
 
 ---
 
-## On-Car Test Checklist (Priority Order)
+### Dashboard Bugs to Fix First
 
-When next deploying to the Atto 3, verify these in order:
+These are broken on the current `main` dashboard and must be fixed as the first commit on `lite/main` (or as a fix on `main` and cherry-picked):
 
-1. **Dashboard** — all four widgets populate (recording storage, sentry events, CPU/GPU/MEM bars, 12V voltage). Tap each card to confirm navigation works.
-2. **Remote Access** — QR code appears when a tunnel URL is active; hamburger icon shows (not back arrow).
-3. **MotionPipelineV2 init** — check daemon logs for `"V2 pipeline initialized"` vs `"not initialized"`. If init fails, the surveillance page shows a "Motion detection unavailable" warning.
-4. **Surveillance detection** — motion in camera FOV triggers an event across all active quadrants.
-5. **Surveillance config persistence** — change a setting (e.g. sensitivity), restart the car, confirm it survived.
-6. **Camera reconfiguration** — trigger from drawer; confirm probe flow runs and feeds are assigned correctly.
-7. **Multi-camera UV** — confirm no feeds are vertically inverted.
-8. **WebView caching** — navigate to Recording Settings, go back to Dashboard, return to Recording Settings — second visit should appear immediately with no loading spinner.
-9. **Performance under load** — with recording active and sentry armed simultaneously, check the Performance tab for CPU/GPU/thermal headroom. This is the baseline for the optimisation work.
+1. **Sentry card shows "OFF" even when sentry is enabled.** `DashboardFragment.kt` → `updateSentryCard()` — investigate what `/api/surveillance/status` actually returns vs what the parser expects. The `enabled`/`active` fields may be keyed differently than assumed.
+
+2. **Sentry events today count not shown.** Same method — `events_today` field may be missing or at a different JSON path.
+
+3. **Vehicle card missing SOC% and km range.** `DashboardFragment.kt` → `updateVehicleCard()` — currently reads from `/api/performance/battery` but SOC and range may not be in `voltageHistory`. Check what the daemon actually returns and fix the field path or switch to the `/status` endpoint which includes `soc` and `range`.
+
+Fix these before migrating anything else — they're quick and will be validated on the next car deploy.
+
+---
+
+### Native-First Mandate
+
+On `lite/main`, **no screen is a WebView**. Every settings page, status page, and tool is a native Kotlin Fragment with XML or Compose layout.
+
+Rules:
+- When migrating a WebView screen, read the existing HTML/JS to understand what data it fetches and displays, then build a native equivalent that hits the same daemon API endpoints
+- Do not carry forward any HTML/JS/CSS — build fresh in Kotlin
+- `WebViewFragment.kt` can be deleted once all WebViews are migrated
+- `assets/web/` can be deleted once migration is complete and no WebViews remain
+
+---
+
+### Design System — Liquid Glass
+
+All native screens on `lite/main` follow this design language. Do not deviate from it.
+
+**Concept:** iOS 26 / macOS Sequoia liquid glass — dark, deep, frosted surfaces. Clean hierarchy. Content first.
+
+**Background:** Deep near-black — `#08080F` or equivalent. Not pure black. A very slight blue-grey tint.
+
+**Cards / surfaces:**
+- Semi-transparent dark glass: `#FFFFFF0F` (6% white alpha) over background
+- Corner radius: `20dp` for primary cards, `14dp` for inner elements
+- Stroke border: `1dp` at `#FFFFFF18` (10% white alpha) — gives the glass edge
+- No shadows. Elevation is implied by the stroke and translucency, not by drop shadow.
+
+**Typography:**
+- System font (Roboto on Android, but use thin/light weights to mimic SF Pro)
+- Primary labels: `14sp`, weight 500, `#FFFFFF` full white
+- Secondary / subtext: `12sp`, weight 400, `#FFFFFF80` (50% white)
+- Numeric/metric values: `24–32sp`, weight 300 (light), full white — let numbers breathe
+- Section headers: `11sp`, weight 600, `#FFFFFF50` (30% white), all caps, tracked wide
+
+**Accent color:** Single accent — `#00D4AA` (teal/cyan). Used for active states, progress fill, and primary action buttons only. Not overused.
+
+**Status colors (sparingly):**
+- Active / good: `#22C55E`
+- Warning: `#F59E0B`
+- Danger / error: `#EF4444`
+- Muted / off: `#FFFFFF40`
+
+**Icons:** Material Symbols, `outlined` style, weight 300. Size `20dp` for inline, `24dp` for action icons.
+
+**Interactive elements:**
+- Buttons: glass card style with accent stroke, `14sp` medium weight, `48dp` min touch target
+- Toggles: use `SwitchMaterial` styled with accent track color
+- Sliders: accent track, transparent thumb with white stroke
+- No flat colored buttons except destructive actions (red fill)
+
+**Spacing:** 8dp base unit. Card padding `16dp`. Inter-card gap `12dp`. Section gap `24dp`.
+
+**DiLink-specific:** The screen is landscape 1280×480dp (approximately). Design for landscape-first. Cards should be wide and short, not tall. Avoid vertical scrolling where possible — prefer tab-style or horizontal layout within the screen.
+
+---
+
+### Migration Order
+
+Work in this order. Each screen is one branch + one PR into `lite/main`.
+
+1. **Dashboard bug fixes** — `fix/dashboard-status` → `lite/main`
+2. **Strip removed features** — `lite/feature-strip-daemons` — remove Telegram, Singbox, Cloudflare, Zrok, MQTT, Trips, Remote Access, Traffic Monitor nav entry. Remove their controllers/launchers. One large PR.
+3. **Recording Settings native** — `lite/feature-recording-settings-native`
+4. **Surveillance Settings native** — `lite/feature-surveillance-settings-native`
+5. **Performance native** — `lite/feature-performance-native`
+6. **ABRP native** — `lite/feature-abrp-native`
+7. **Logs native** (with enable/disable toggle) — `lite/feature-logs-native`
+8. **Strip `assets/web/`** — once all screens are native and verified on-car
+
+---
+
+### Unverified Items (On-Car Only)
+
+These are from `main` and carry over to `lite/main` as known unknowns:
+
+- **MotionPipelineV2 init** — check daemon logs for `"V2 pipeline initialized"` on first `lite/main` deploy
+- **Multi-camera UV** — if any feed appears vertically inverted, swap `v0`/`v1` in `MultiCameraGLView.kt`
+- **Camera reconfiguration** — low priority; only needed if feeds are swapped
+
+---
+
+## On-Car Test Checklist (`lite/main`)
+
+When deploying to the Atto 3, verify in order:
+
+1. **Dashboard** — sentry status is accurate (not showing OFF when armed), events today count is shown, SOC% and km range appear on vehicle card.
+2. **Recording** — events list loads quickly (native, no WebView delay), video player works.
+3. **Sentry settings** — all config persists across restart.
+4. **Recording settings** — all config persists across restart.
+5. **ABRP** — status and telemetry display correctly (once native screen is built).
+6. **Performance** — CPU/GPU/thermal bars show real-time data.
+7. **Logs** — toggle disables logging; toggle re-enables it.
+8. **MotionPipelineV2 init** — daemon logs show `"V2 pipeline initialized"`.
+9. **Surveillance detection** — motion triggers events in all active quadrants.
+10. **Performance under load** — recording active + sentry armed simultaneously; check thermal headroom.
