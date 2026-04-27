@@ -29,6 +29,7 @@ class RecordingAdapter(
     private val thumbnailCache    = mutableMapOf<String, Bitmap?>()
     private val eventSummaryCache = mutableMapOf<String, String>()
     private val durationCache     = mutableMapOf<String, String>()  // formatted duration, empty = not yet loaded
+    private val detectionTypeCache = mutableMapOf<String, String>() // dominant type: PERSON/VEHICLE/BIKE/MOTION or ""
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecordingViewHolder {
         val view = LayoutInflater.from(parent.context)
@@ -41,13 +42,14 @@ class RecordingAdapter(
     }
 
     inner class RecordingViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        private val ivThumbnail:    ImageView   = itemView.findViewById(R.id.ivThumbnail)
-        private val tvTypeBadge:    TextView    = itemView.findViewById(R.id.tvTypeBadge)
-        private val tvRecordingTime: TextView   = itemView.findViewById(R.id.tvRecordingTime)
-        private val tvDuration:     TextView    = itemView.findViewById(R.id.tvDuration)
-        private val tvSize:         TextView    = itemView.findViewById(R.id.tvSize)
-        private val tvEvents:       TextView    = itemView.findViewById(R.id.tvEvents)
-        private val btnDelete:      ImageButton = itemView.findViewById(R.id.btnDelete)
+        private val ivThumbnail:      ImageView   = itemView.findViewById(R.id.ivThumbnail)
+        private val tvTypeBadge:      TextView    = itemView.findViewById(R.id.tvTypeBadge)
+        private val tvDetectionBadge: TextView    = itemView.findViewById(R.id.tvDetectionBadge)
+        private val tvRecordingTime:  TextView    = itemView.findViewById(R.id.tvRecordingTime)
+        private val tvDuration:       TextView    = itemView.findViewById(R.id.tvDuration)
+        private val tvSize:           TextView    = itemView.findViewById(R.id.tvSize)
+        private val tvEvents:         TextView    = itemView.findViewById(R.id.tvEvents)
+        private val btnDelete:        ImageButton = itemView.findViewById(R.id.btnDelete)
 
         fun bind(recording: RecordingFile) {
             // Type badge label + colour
@@ -64,8 +66,9 @@ class RecordingAdapter(
             tvRecordingTime.text = recording.formattedTime
             tvSize.text = recording.formattedSize
 
-            // Show cached event summary immediately; load async if not cached yet
+            // Show cached event summary + detection badge immediately; load async if not cached yet
             applyEventSummary(eventSummaryCache[recording.path])
+            applyDetectionBadge(detectionTypeCache[recording.path])
 
             // Show cached duration; hide while not yet loaded (avoids "--:--" placeholder)
             val cachedDuration = durationCache[recording.path]
@@ -103,11 +106,28 @@ class RecordingAdapter(
             }
         }
 
+        private fun applyDetectionBadge(dominantType: String?) {
+            if (dominantType.isNullOrEmpty()) {
+                tvDetectionBadge.visibility = View.GONE
+                return
+            }
+            val color = when (dominantType) {
+                "PERSON"  -> 0xFF00D4AA.toInt()   // teal
+                "VEHICLE" -> 0xFFF59E0B.toInt()   // amber
+                "BIKE"    -> 0xFFF59E0B.toInt()   // amber
+                else      -> 0xFF607080.toInt()   // muted blue-gray for MOTION
+            }
+            tvDetectionBadge.text = dominantType
+            tvDetectionBadge.backgroundTintList = ColorStateList.valueOf(color)
+            tvDetectionBadge.visibility = View.VISIBLE
+        }
+
         private fun loadAsync(recording: RecordingFile) {
             CoroutineScope(Dispatchers.IO).launch {
                 // 1. Parse JSON sidecar (fast, small) to get first event timestamp + stats
                 var firstEventUs = 1_000_000L  // default: 1 s in microseconds
                 var summary = ""
+                var dominantType = ""
 
                 val jsonFile = File(recording.path.replace(".mp4", ".json"))
                 if (jsonFile.exists()) {
@@ -131,6 +151,13 @@ class RecordingAdapter(
                             // Only show motion if nothing more specific was detected
                             if (parts.isEmpty() && motion > 0) parts.add("motion")
                             summary = parts.joinToString("  ·  ")
+                            dominantType = when {
+                                persons > 0 -> "PERSON"
+                                cars    > 0 -> "VEHICLE"
+                                bikes   > 0 -> "BIKE"
+                                motion  > 0 -> "MOTION"
+                                else        -> ""
+                            }
                         }
                     } catch (_: Exception) { }
                 }
@@ -162,15 +189,17 @@ class RecordingAdapter(
                     retriever.release()
                 } catch (_: Exception) { }
 
-                thumbnailCache[recording.path]    = thumbnail
-                eventSummaryCache[recording.path] = summary
-                durationCache[recording.path]     = durationFormatted
+                thumbnailCache[recording.path]     = thumbnail
+                eventSummaryCache[recording.path]  = summary
+                durationCache[recording.path]      = durationFormatted
+                detectionTypeCache[recording.path] = dominantType
 
                 withContext(Dispatchers.Main) {
                     val pos = bindingAdapterPosition
                     if (pos != RecyclerView.NO_POSITION && getItem(pos).path == recording.path) {
                         if (thumbnail != null) ivThumbnail.setImageBitmap(thumbnail)
                         applyEventSummary(summary)
+                        applyDetectionBadge(dominantType)
                         if (durationFormatted.isNotEmpty()) {
                             tvDuration.text = durationFormatted
                             tvDuration.visibility = View.VISIBLE
@@ -185,6 +214,7 @@ class RecordingAdapter(
         thumbnailCache.clear()
         eventSummaryCache.clear()
         durationCache.clear()
+        detectionTypeCache.clear()
     }
 
     private class RecordingDiffCallback : DiffUtil.ItemCallback<RecordingFile>() {
