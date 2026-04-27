@@ -86,13 +86,13 @@
 
                     </LinearLayout>
 
-                    <!-- Primary value — vertically centred in remaining space -->
+                    <!-- Primary value -->
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:gravity="center_vertical">
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="8dp">
 
                         <LinearLayout
                             android:layout_width="wrap_content"
@@ -241,10 +241,10 @@
                     <!-- Primary — event count -->
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:gravity="center_vertical">
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="8dp">
 
                         <TextView
                             android:id="@+id/tvSurvEventsNum"
@@ -367,13 +367,12 @@
 
                     </LinearLayout>
 
-                    <!-- Metric rows — vertically centred in remaining space -->
+                    <!-- Metric rows -->
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:gravity="center_vertical">
+                        android:layout_marginTop="4dp">
 
                         <!-- CPU -->
                         <LinearLayout
@@ -608,10 +607,10 @@
                     <!-- Primary — 12V voltage -->
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="0dp"
-                        android:layout_weight="1"
+                        android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:gravity="center_vertical">
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="8dp">
 
                         <LinearLayout
                             android:layout_width="wrap_content"
