@@ -331,10 +331,13 @@ class DashboardFragment : Fragment() {
     // ── Card update methods ────────────────────────────────────────────────────
 
     private fun updateSentryCard(json: JSONObject) {
-        val enabled = json.optBoolean("enabled", false)
-        val active  = json.optBoolean("active",  false)
-        val events  = json.optInt("events_today", -1)
-        val lastDet = json.optString("last_detection", null)
+        // Response shape: { "success": true, "status": { "enabled", "active", "totalEventsToday", "events": [...] } }
+        val status  = json.optJSONObject("status") ?: return
+        val enabled = status.optBoolean("enabled", false)
+        val active  = status.optBoolean("active",  false)
+        val events  = status.optInt("totalEventsToday", -1)
+        val lastDet = status.optJSONArray("events")
+            ?.let { arr -> if (arr.length() > 0) arr.getJSONObject(0).optString("time", null) else null }
 
         val (pillText, pillColor, accentColor) = when {
             active  -> Triple("DETECTING", R.color.status_warning, R.color.status_warning)
@@ -362,16 +365,10 @@ class DashboardFragment : Fragment() {
 
     private fun updateVehicleCard(json: JSONObject) {
         val current = json.optJSONObject("current") ?: return
-        val v12 = current.optDouble("voltage12v", Double.NaN)
-
-        val history = json.optJSONArray("voltageHistory")
-        var soc   = Double.NaN
-        var range = Double.NaN
-        if (history != null && history.length() > 0) {
-            val last = history.getJSONObject(history.length() - 1)
-            soc   = last.optDouble("soc",   Double.NaN)
-            range = last.optDouble("range", Double.NaN)
-        }
+        val v12   = current.optDouble("voltage12v", Double.NaN)
+        // SOC and range are live fields in "current", not in voltageHistory — "rangeKm" not "range"
+        val soc   = current.optDouble("soc",     Double.NaN)
+        val range = current.optDouble("rangeKm", Double.NaN)
 
         if (!v12.isNaN()) {
             val voltColor = resources.getColor(when {
