@@ -248,15 +248,24 @@ public class HardwareEventRecorderGpu {
                 logger.warn("Could not set H.265 profile: " + e.getMessage());
             }
         } else {
-            // H.264: Use Baseline Profile for iOS Safari compatibility
+            // H.264: High Profile for sentry clips (local storage, not remote-streamed).
+            // High Profile uses CABAC entropy coding vs Baseline's CAVLC — same bitrate,
+            // ~15% better quality. AVCLevel41 supports 2560x1920 @ 30fps.
             try {
                 format.setInteger(MediaFormat.KEY_PROFILE,
-                        MediaCodecInfo.CodecProfileLevel.AVCProfileBaseline);
+                        MediaCodecInfo.CodecProfileLevel.AVCProfileHigh);
                 format.setInteger(MediaFormat.KEY_LEVEL,
-                        MediaCodecInfo.CodecProfileLevel.AVCLevel31);
-                logger.info("H.264 profile set to Baseline/Level 3.1 (iOS compatible)");
+                        MediaCodecInfo.CodecProfileLevel.AVCLevel41);
+                logger.info("H.264 profile set to High/Level 4.1");
             } catch (Exception e) {
                 logger.warn("Could not set H.264 profile: " + e.getMessage());
+            }
+            // B-frames: smaller files at the same visual quality (~10-12% savings).
+            // Slight pre-record buffer latency increase — negligible at 2s keyframes.
+            try {
+                format.setInteger(MediaFormat.KEY_B_FRAME_INTERVAL, 1);
+            } catch (Exception e) {
+                // Not supported on all devices — safe to skip
             }
         }
         
