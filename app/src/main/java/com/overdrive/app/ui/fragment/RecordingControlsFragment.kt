@@ -48,6 +48,7 @@ class RecordingControlsFragment : Fragment() {
     private lateinit var toggleRecordingBitrate: MaterialButtonToggleGroup
     private lateinit var toggleVideoCodec: MaterialButtonToggleGroup
     private lateinit var btnApplyQuality: MaterialButton
+    private var tvH265Warning: TextView? = null
     
     // Storage limit settings
     private lateinit var sliderRecordingsLimit: com.google.android.material.slider.Slider
@@ -163,6 +164,8 @@ class RecordingControlsFragment : Fragment() {
         toggleRecordingBitrate = view.findViewById(R.id.toggleRecordingBitrate)
         toggleVideoCodec = view.findViewById(R.id.toggleVideoCodec)
         btnApplyQuality = view.findViewById(R.id.btnApplyQuality)
+        tvH265Warning = view.findViewById(R.id.tvH265Warning)
+        checkH265HardwareSupport()
         
         // Storage limit settings
         sliderRecordingsLimit = view.findViewById(R.id.sliderRecordingsLimit)
@@ -1070,6 +1073,24 @@ class RecordingControlsFragment : Fragment() {
         }
     }
     
+    private fun checkH265HardwareSupport() {
+        val hasHwEncoder = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            android.media.MediaCodecList(android.media.MediaCodecList.REGULAR_CODECS)
+                .codecInfos
+                .any { info ->
+                    info.isEncoder &&
+                        !info.isSoftwareOnly &&
+                        info.supportedTypes.any { it.equals("video/hevc", ignoreCase = true) }
+                }
+        } else {
+            // Below API 29 isSoftwareOnly is unavailable; assume HW encoder is present
+            true
+        }
+        if (!hasHwEncoder) {
+            tvH265Warning?.visibility = View.VISIBLE
+        }
+    }
+
     override fun onDestroyView() {
         super.onDestroyView()
         // Cleanup daemon client
