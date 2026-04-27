@@ -1,6 +1,5 @@
 package com.overdrive.app.ui.fragment
 
-import android.content.res.ColorStateList
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -360,7 +359,7 @@ class DashboardFragment : Fragment() {
                 else        -> R.color.status_danger
             }, null)
             tvStatVolt.setTextColor(voltColor)
-            tileStatVolt.strokeColor = ColorStateList.valueOf(voltColor)
+            tileStatVolt.strokeColor = voltColor
         }
 
         if (!soc.isNaN()) tvStatSoc.text = "%.0f%%".format(soc)
