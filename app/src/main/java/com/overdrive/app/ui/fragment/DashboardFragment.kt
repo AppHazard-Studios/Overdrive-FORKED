@@ -11,8 +11,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavOptions
 import androidx.navigation.fragment.findNavController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.overdrive.app.R
 import com.overdrive.app.auth.AuthManager
 import com.overdrive.app.ui.model.DaemonStatus
@@ -261,7 +265,7 @@ class DashboardFragment : Fragment() {
     }
 
     private fun fetchSurveillanceStatus(jwt: String?) {
-        Thread {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val conn = URL("http://127.0.0.1:8080/api/surveillance/status")
                     .openConnection() as HttpURLConnection
@@ -271,13 +275,13 @@ class DashboardFragment : Fragment() {
                 val json = if (conn.responseCode == 200)
                     JSONObject(conn.inputStream.bufferedReader().readText()) else null
                 conn.disconnect()
-                handler.post { if (json != null) updateSentryCard(json) }
+                if (json != null) withContext(Dispatchers.Main) { updateSentryCard(json) }
             } catch (_: Exception) {}
-        }.start()
+        }
     }
 
     private fun fetchBatterySnapshot(jwt: String?) {
-        Thread {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val conn = URL("http://127.0.0.1:8080/api/performance/battery?hours=1&points=5")
                     .openConnection() as HttpURLConnection
@@ -287,13 +291,13 @@ class DashboardFragment : Fragment() {
                 val json = if (conn.responseCode == 200)
                     JSONObject(conn.inputStream.bufferedReader().readText()) else null
                 conn.disconnect()
-                handler.post { if (json != null) updateVehicleCard(json) }
+                if (json != null) withContext(Dispatchers.Main) { updateVehicleCard(json) }
             } catch (_: Exception) {}
-        }.start()
+        }
     }
 
     private fun fetchPerfSnapshot(jwt: String?) {
-        Thread {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val conn = URL("http://127.0.0.1:8080/api/performance")
                     .openConnection() as HttpURLConnection
@@ -303,13 +307,13 @@ class DashboardFragment : Fragment() {
                 val json = if (conn.responseCode == 200)
                     JSONObject(conn.inputStream.bufferedReader().readText()) else null
                 conn.disconnect()
-                handler.post { if (json != null) updateSystemMetrics(json) }
+                if (json != null) withContext(Dispatchers.Main) { updateSystemMetrics(json) }
             } catch (_: Exception) {}
-        }.start()
+        }
     }
 
     private fun fetchTodayTrips(jwt: String?) {
-        Thread {
+        viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val conn = URL("http://127.0.0.1:8080/api/trips/summary?days=1")
                     .openConnection() as HttpURLConnection
@@ -319,9 +323,9 @@ class DashboardFragment : Fragment() {
                 val json = if (conn.responseCode == 200)
                     JSONObject(conn.inputStream.bufferedReader().readText()) else null
                 conn.disconnect()
-                handler.post { if (json != null) updateTodayTrip(json) }
+                if (json != null) withContext(Dispatchers.Main) { updateTodayTrip(json) }
             } catch (_: Exception) {}
-        }.start()
+        }
     }
 
     // ── Card update methods ────────────────────────────────────────────────────
