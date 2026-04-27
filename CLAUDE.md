@@ -162,20 +162,16 @@ Playback of individual camera angles is done at the UI layer: one `MediaPlayer` 
 
 ## ⚠️ Two Separate UIs — Read This Before Touching Any UI File
 
-### Current focus: Android on-screen UI only
-The remote web UI (browser access) is NOT the current work priority. Do not edit `assets/web/` files unless explicitly asked. Remote Web UI changes require the physical car with daemon running — they cannot be verified in the emulator.
-
----
-
 ### Android On-Screen UI — Screen-by-File Mapping
 
 Before editing anything, look up the screen here. Do not assume. Do not guess.
 
 | Screen | Implementation | Files to edit |
 |---|---|---|
+| **Dashboard** | **NATIVE Kotlin** — NOT HTML | `DashboardFragment.kt`, `fragment_dashboard.xml` |
 | **Events / Recordings** | **NATIVE Kotlin** — NOT HTML | `RecordingLibraryFragment.kt`, `RecordingAdapter.kt`, `item_recording.xml`, `fragment_recording_library.xml`, `RecordingFile.kt` |
 | **Video Player** | **NATIVE Kotlin** — NOT HTML | `MultiCameraPlayerFragment.kt`, `fragment_multi_camera_player.xml`, `MultiCameraGLView.kt` |
-| Dashboard | WebView → `local/index.html` | `assets/web/local/index.html`, `assets/web/shared/*.js` |
+| **Remote Access** | **NATIVE Kotlin** — NOT HTML | `RemoteAccessFragment.kt`, `fragment_remote_access.xml` |
 | Recording Settings | WebView → `local/recording.html` | `assets/web/local/recording.html`, `assets/web/shared/recording.js` |
 | Surveillance Settings | WebView → `local/surveillance.html` | `assets/web/local/surveillance.html`, `assets/web/shared/surveillance.js` |
 | Performance | WebView → `local/performance.html` | `assets/web/local/performance.html`, `assets/web/shared/performance.js` |
@@ -265,34 +261,75 @@ If this is ever wanted: implement `StatusOverlayService` as a foreground service
 
 ---
 
-## v10 Port Status — Remaining Action Items
+## Current Focus — Performance Optimisation
 
-The upstream v10 merge landed in April 2026 (PR #15). Items below need on-car verification before v10 is fully confirmed working.
+**Goal:** Reduce CPU and GPU load without sacrificing reliable, accurate, high-quality recording.
+
+The recording pipeline is the primary constraint. Everything else is secondary to it. Any change that risks dropped frames, encoder stalls, or reduced detection accuracy must be rejected regardless of the CPU saving.
+
+### What "performance" means here
+
+- **CPU**: reducing background work, poll frequency, unnecessary wakeups, GC pressure
+- **GPU**: reducing per-frame shader work, unnecessary texture sampling, off-screen render passes
+- **Thermal**: keeping the head unit cool enough that Android doesn't throttle under sustained load (recording + sentry simultaneously is the worst case)
+- **Not**: reducing recording resolution, bitrate, or detection sensitivity — these are product requirements, not variables
+
+### Where the load actually comes from
+
+**GPU pipeline (on-car only, DO NOT MODIFY files):**
+- `GpuMosaicRecorder` — composes the 5120×960 BYD strip into a 2560×1920 2×2 grid each frame at ~5.5fps via MediaCodec H.264
+- `GpuDownscaler` — downsamples to 320×240 @ 2fps for the surveillance pipeline
+- `MotionPipelineV2` — 6-stage C++/NEON filter per quadrant at 2fps via JNI
+
+**CPU (daemon):**
+- `AccSentryDaemon` wake polling interval when parked
+- HTTP server request handling (mostly negligible)
+- Telemetry sampling at ~5fps alongside recording
+
+**CPU (UI layer — legitimate targets):**
+- `DashboardFragment` HTTP polling (currently every 60s — already conservative)
+- WebView JS polling timers on settings pages (paused when not visible via WebView cache)
+- `RecordingViewModel` storage stat polling
+- Any background timers in `MainActivity`
+
+### Legitimate performance levers (UI layer, safe to change)
+
+| Area | What to change | Expected gain |
+|---|---|---|
+| Recording config | H.264 bitrate, GOP size, profile/level in recording settings | Storage + encoder CPU |
+| Surveillance zones | Disable quadrants with no useful FOV (e.g. rear-only sentry) | MotionPipelineV2 cost scales with active quadrants |
+| Dashboard poll interval | Currently 60s — can increase if metrics feel stale | Minor; already low |
+| WebView poll intervals | Each settings page has its own JS polling rate — audit and raise floors | Reduces daemon HTTP wakeups |
+| AccSentryDaemon wake interval | Tune the parked-mode polling cadence | CPU when parked overnight |
+
+### Approach for any performance change
+
+1. Read the existing code to understand the current cost before proposing a change
+2. Estimate the gain — "reduces from N to M calls per minute" is more useful than "should be faster"
+3. Changes to DO NOT MODIFY files are off the table regardless of the gain
+4. All daemon-layer changes require on-car verification — they cannot be tested in the emulator
+5. After a change, the on-car test must confirm no regression in recording continuity or event detection
 
 ---
 
-### 1. Camera Reconfiguration Flow — Needs On-Car Verification
+## v10 Port — Unverified Items (On-Car Only)
+
+These were implemented in code but not yet verified on the physical Atto 3. They are lower priority now that performance is the focus, but should be confirmed when next deploying.
+
+### Camera Reconfiguration Flow
 
 **State:** Wired but untested on physical hardware.
 
-**What's present:** Drawer menu item `nav_reconfigure_camera`, `onReconfigureCameraClicked()` in `MainActivity.kt` (clears saved camera probe config via `UnifiedConfigManager`, kills daemon via `AdbDaemonLauncher`, triggers auto-restart with full camera probe), `dialog_setup_guide.xml` layout, `ic_camera_probe.xml` drawable.
+`onReconfigureCameraClicked()` in `MainActivity.kt` clears the saved camera probe config via `UnifiedConfigManager`, kills the daemon via `AdbDaemonLauncher`, and triggers auto-restart with full camera probe. Verify:
+- `dialog_setup_guide.xml` renders correctly in landscape on the DiLink screen
+- Clearing probe config and restarting correctly triggers the camera identification flow
+- Camera quad labels (FRONT/RIGHT/REAR/LEFT) remain accurate — they are hardcoded to the fixed BYD HAL mosaic layout and do not change with reconfiguration
 
-**What needs verifying on the Atto 3:**
-- Does `dialog_setup_guide.xml` render correctly in landscape on the DiLink screen?
-- Does clearing the probe config and restarting the daemon correctly trigger the camera identification flow?
-- Does the resulting camera assignment actually fix swapped/mismatched feeds for Global Atto 3?
+**Priority:** Low — current camera config is working on the test device. Only needed if feeds appear swapped after a firmware update or different trim.
 
-**Camera quad labels are stable:** The BYD HAL always outputs the same fixed mosaic layout (top-left=Rear, top-right=Left, bottom-left=Front, bottom-right=Right). The `CameraView` enum labels in `MultiCameraGLView.kt` are correctly hardcoded to match this hardware layout. Reconfiguration only changes which camera ID/surface mode produces the mosaic stream — it does not alter the mosaic's quadrant positions, so the FRONT/RIGHT/REAR/LEFT labels are always accurate regardless of probe result.
+### Multi-Camera UV Calibration
 
-**Priority:** Low for now — the existing camera config is already working on the test device. Only needed if feeds appear swapped after a firmware update or on a different trim/model year.
-
----
-
-### 2. Multi-Camera UV Calibration — On-Car Only
-
-**State:** Set from code inspection. Not verified on physical hardware.
-
-`MultiCameraGLView.kt` UV coordinates for each camera quadrant in the `CameraView` enum were derived from the mosaic layout, not observed on the car. If any feed appears vertically inverted, swap `v0`/`v1` for that camera entry. Requires the Atto 3 to confirm.
+`MultiCameraGLView.kt` UV coordinates were derived from code inspection, not confirmed on-car. If any feed appears vertically inverted, swap `v0`/`v1` for that camera entry in the `CameraView` enum.
 
 ---
 
@@ -300,10 +337,12 @@ The upstream v10 merge landed in April 2026 (PR #15). Items below need on-car ve
 
 When next deploying to the Atto 3, verify these in order:
 
-1. **MotionPipelineV2 init** — does surveillance start cleanly? Check daemon logs for `"V2 pipeline initialized"` vs `"not initialized"`. If init fails, the surveillance page now shows a "Motion detection unavailable" warning.
-2. **Surveillance detection** — does motion in the camera FOV trigger an event? Check all four quadrants independently.
-3. **Surveillance config persistence** — change a setting (e.g. sensitivity), restart the car, confirm the setting survived.
-4. **Camera reconfiguration** — trigger from drawer menu; confirm the probe flow runs and camera feeds are assigned correctly.
-5. **MQTT SSL** — if using a TLS broker, enable the "Trust all certificates" toggle in MQTT settings and verify the connection works end-to-end.
-6. **Multi-camera UV** — confirm no feeds are vertically inverted.
-7. **Video player CAS shader** — play back a recording and expand a single camera feed; confirm the sharpening is visually effective and has no GPU impact on recording/surveillance.
+1. **Dashboard** — all four widgets populate (recording storage, sentry events, CPU/GPU/MEM bars, 12V voltage). Tap each card to confirm navigation works.
+2. **Remote Access** — QR code appears when a tunnel URL is active; hamburger icon shows (not back arrow).
+3. **MotionPipelineV2 init** — check daemon logs for `"V2 pipeline initialized"` vs `"not initialized"`. If init fails, the surveillance page shows a "Motion detection unavailable" warning.
+4. **Surveillance detection** — motion in camera FOV triggers an event across all active quadrants.
+5. **Surveillance config persistence** — change a setting (e.g. sensitivity), restart the car, confirm it survived.
+6. **Camera reconfiguration** — trigger from drawer; confirm probe flow runs and feeds are assigned correctly.
+7. **Multi-camera UV** — confirm no feeds are vertically inverted.
+8. **WebView caching** — navigate to Recording Settings, go back to Dashboard, return to Recording Settings — second visit should appear immediately with no loading spinner.
+9. **Performance under load** — with recording active and sentry armed simultaneously, check the Performance tab for CPU/GPU/thermal headroom. This is the baseline for the optimisation work.
