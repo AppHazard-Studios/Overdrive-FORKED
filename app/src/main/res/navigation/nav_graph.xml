@@ -91,14 +91,9 @@
 
     <fragment
         android:id="@+id/performanceFragment"
-        android:name="com.overdrive.app.ui.fragment.WebViewFragment"
+        android:name="com.overdrive.app.ui.fragment.PerformanceFragment"
         android:label="Performance"
-        tools:layout="@layout/fragment_webview">
-        <argument
-            android:name="page_path"
-            app:argType="string"
-            android:defaultValue="/performance" />
-    </fragment>
+        tools:layout="@layout/fragment_performance" />
 
     <fragment
         android:id="@+id/logsFragment"
