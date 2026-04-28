@@ -118,7 +118,10 @@ class RecordingControlsFragment : Fragment() {
     private var savedCdrEnabled: Boolean = false
     private var savedCdrReservedMb: Long = 2000
     private var savedCdrProtectedHours: Int = 24
-    
+
+    // SharedPreferences — primary persistence; works without daemon/root
+    private lateinit var prefs: android.content.SharedPreferences
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -130,6 +133,7 @@ class RecordingControlsFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         configLoadAttempts = 0
+        prefs = requireContext().getSharedPreferences("recording_settings", android.content.Context.MODE_PRIVATE)
         initViews(view)
         setupClickListeners()
         observeViewModel()
@@ -663,16 +667,36 @@ class RecordingControlsFragment : Fragment() {
                 }
                 
                 unified.put("lastModified", System.currentTimeMillis())
-                
-                // Write to file
-                configFile.writeText(unified.toString(2))
-                
-                // Make world-readable/writable for cross-UID access
-                configFile.setReadable(true, false)
-                configFile.setWritable(true, false)
-                
-                android.util.Log.d("RecordingControls", "Settings saved to unified config")
-                
+
+                // Write to SharedPreferences first — always succeeds, no root needed
+                prefs.edit()
+                    .putString("rec_bitrate", savedBitrate)
+                    .putString("rec_codec", savedCodec)
+                    .putString("rec_quality", savedQuality)
+                    .putLong("rec_storage_limit", savedStorageLimit)
+                    .putString("rec_mode", savedRecordingMode)
+                    .putString("rec_trigger_level", savedTriggerLevel)
+                    .putInt("rec_pre_record", savedPreRecord)
+                    .putInt("rec_post_record", savedPostRecord)
+                    .apply()
+
+                activity?.runOnUiThread {
+                    hasUnsavedChanges = false
+                    btnApplyQuality.isEnabled = false
+                    val msg = if (cleanupMessage != null) "Settings applied. $cleanupMessage" else "Settings applied"
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                }
+
+                // Best-effort: sync to daemon config file for cross-UID access
+                try {
+                    configFile.writeText(unified.toString(2))
+                    configFile.setReadable(true, false)
+                    configFile.setWritable(true, false)
+                    android.util.Log.d("RecordingControls", "Settings synced to daemon config file")
+                } catch (e: Exception) {
+                    android.util.Log.d("RecordingControls", "Daemon config file not writable — daemon will pick up prefs on next start: ${e.message}")
+                }
+
                 // Also send to daemon via IPC to apply immediately to running pipeline
                 val client = getOrCreateDaemonClient()
                 if (client != null) {
@@ -692,23 +716,11 @@ class RecordingControlsFragment : Fragment() {
                         client.setRecordingsLimitMbSync(limit)
                     }
                 }
-                
-                activity?.runOnUiThread {
-                    hasUnsavedChanges = false
-                    btnApplyQuality.isEnabled = false
-                    
-                    val msg = if (cleanupMessage != null) {
-                        "Settings applied. $cleanupMessage"
-                    } else {
-                        "Settings applied"
-                    }
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
-                }
-                
+
             } catch (e: Exception) {
-                android.util.Log.e("RecordingControls", "Failed to save settings: ${e.message}")
+                android.util.Log.e("RecordingControls", "Failed to apply settings: ${e.message}")
                 activity?.runOnUiThread {
-                    Toast.makeText(context, "Failed to save settings", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "Failed to apply settings", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -723,14 +735,15 @@ class RecordingControlsFragment : Fragment() {
         
         // SOTA: Load config in background to prevent UI lag (Skipped frames)
         executor.submit {
-            var loadedBitrate = "MEDIUM"
-            var loadedCodec = "H264"
-            var loadedQuality = "NORMAL"
-            var loadedStorageLimit = 500L
-            var loadedRecordingMode = "NONE"
-            var loadedTriggerLevel = "RED"
-            var loadedPreRecord = 5
-            var loadedPostRecord = 10
+            // Start from SharedPreferences so saved values survive app restarts without daemon
+            var loadedBitrate = prefs.getString("rec_bitrate", "MEDIUM") ?: "MEDIUM"
+            var loadedCodec = prefs.getString("rec_codec", "H264") ?: "H264"
+            var loadedQuality = prefs.getString("rec_quality", "NORMAL") ?: "NORMAL"
+            var loadedStorageLimit = prefs.getLong("rec_storage_limit", 500L)
+            var loadedRecordingMode = prefs.getString("rec_mode", "NONE") ?: "NONE"
+            var loadedTriggerLevel = prefs.getString("rec_trigger_level", "RED") ?: "RED"
+            var loadedPreRecord = prefs.getInt("rec_pre_record", 5)
+            var loadedPostRecord = prefs.getInt("rec_post_record", 10)
             
             try {
                 val configFile = java.io.File("/data/local/tmp/overdrive_config.json")
