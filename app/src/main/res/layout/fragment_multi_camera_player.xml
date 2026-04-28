@@ -208,7 +208,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCasToggle"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/Widget.Overdrive.Button.Outlined"
             android:layout_width="wrap_content"
             android:layout_height="32dp"
             android:layout_marginStart="12dp"
