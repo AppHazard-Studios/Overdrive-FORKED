@@ -263,7 +263,7 @@ public class HardwareEventRecorderGpu {
             // B-frames: smaller files at the same visual quality (~10-12% savings).
             // Slight pre-record buffer latency increase — negligible at 2s keyframes.
             try {
-                format.setInteger(MediaFormat.KEY_B_FRAME_INTERVAL, 1);
+                format.setInteger("max-bframes", 1); // KEY_MAX_B_FRAMES — API 33+, no-ops gracefully below
             } catch (Exception e) {
                 // Not supported on all devices — safe to skip
             }
