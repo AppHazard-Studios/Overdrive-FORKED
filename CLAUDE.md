@@ -248,8 +248,6 @@ Build APK: Android Studio → Build → Build APK (or Generate Signed APK for re
 
 - `Safe.java` AES key is split into 4 fragments but trivially reassembled by any decompiler. Not real security. NDK/Keystore not feasible in app_process context. Add a comment, move on.
 - Mixed Java/Kotlin split is historical. Don't migrate for its own sake.
-- **SD card write path:** `CameraDaemon.java` (DO NOT MODIFY) writes to a simple absolute path under the SD card root (e.g. `/storage/{UUID}/Overdrive/recordings/`), not to the app-private `Android/data/` path. The UI scanner must resolve this path. See `RecordingScanner.kt` for the dual-path scan logic.
-- **GPU sharpening in sentry clips:** `GpuMosaicRecorder.java` (DO NOT MODIFY) renders directly to `HardwareEventRecorderGpu`'s encoder EGL surface via `eglCore.makeCurrent(encoderSurface)`. There is no post-processing injection point for an intermediate FBO. Playback sharpening (CAS in `MultiCameraGLView.kt`) is possible; recording-path sharpening requires changes to `GpuMosaicRecorder.java`.
 
 ### Status Pill Overlay — Not Planned
 
@@ -313,23 +311,17 @@ The recording pipeline is sacred — nothing changes there. UI and feature decis
 
 ---
 
-### Dashboard Bugs — Resolved
+### Dashboard Bugs to Fix First
 
-These were fixed in `fix/dashboard-status` (merged PR #26):
+These are broken on the current `main` dashboard and must be fixed as the first commit on `lite/main` (or as a fix on `main` and cherry-picked):
 
-1. **Sentry card "OFF"** — Root cause: poll interval was 60s, causing stale reads immediately after arming. Fixed: surveillance status now polled every 10s; `onResume()` triggers an immediate refresh. `events_today` defaults to 0 (not -1) so it shows "0" rather than "--".
+1. **Sentry card shows "OFF" even when sentry is enabled.** `DashboardFragment.kt` → `updateSentryCard()` — investigate what `/api/surveillance/status` actually returns vs what the parser expects. The `enabled`/`active` fields may be keyed differently than assumed.
 
-2. **Vehicle card missing SOC/range** — Fixed: `updateVehicleCard()` now reads `soc` and `range_km` from the `/api/performance` response object directly (not from `voltageHistory` sub-array).
+2. **Sentry events today count not shown.** Same method — `events_today` field may be missing or at a different JSON path.
 
-**Startup delay investigation findings (fixed in `fix/startup-delay`):**
-- `DaemonStartupManager.kt` had a hardcoded 45-second delay before calling `startCoreDaemons()`. Reduced to 1s.
-- `MainActivity.kt` had a 1s + 3s delay chain. Both removed/reduced.
-- Net result: camera daemon starts ~50s sooner after app launch.
+3. **Vehicle card missing SOC% and km range.** `DashboardFragment.kt` → `updateVehicleCard()` — currently reads from `/api/performance/battery` but SOC and range may not be in `voltageHistory`. Check what the daemon actually returns and fix the field path or switch to the `/status` endpoint which includes `soc` and `range`.
 
-**SD card scan path (fixed in `fix/sd-card-scan-path`):**
-- `CameraDaemon.java` writes recordings to `/storage/{UUID}/Overdrive/recordings/` (simple path, daemon process).
-- `RecordingScanner.kt` was only scanning `getExternalFilesDirs()` (app-private Android path). Added scan of the daemon's resolved path.
-- If the daemon config file exists at `/data/local/tmp/overdrive_config.json` and contains `storagePath`, that path is used directly.
+Fix these before migrating anything else — they're quick and will be validated on the next car deploy.
 
 ---
 
@@ -393,13 +385,13 @@ All native screens on `lite/main` follow this design language. Do not deviate fr
 Work in this order. Each screen is one branch + one PR into `lite/main`.
 
 1. ✅ **Dashboard bug fixes** — merged `fix/dashboard-status` → `lite/main` (PR #26). Fixed: sentry always showing OFF, events count "--", vehicle card missing SOC/range.
-2. ✅ **Strip removed features** — merged `lite/feature-strip-daemons` → `lite/main`. Removed: Telegram, Singbox, Cloudflare, Zrok, MQTT, Trips, Remote Access, Traffic Monitor nav.
-3. ✅ **Recording Settings native** — merged `lite/feature-recording-settings-native` → `lite/main`.
-4. ✅ **Surveillance Settings native** — merged `lite/feature-surveillance-settings-native` → `lite/main`.
-5. ✅ **Performance native** — merged `lite/feature-performance-native` → `lite/main` (PR #30).
-6. ✅ **ABRP native** — merged `lite/feature-abrp-native` → `lite/main` (PR #31).
-7. ✅ **Logs native** (with enable/disable toggle) — merged `lite/feature-logs-native` → `lite/main` (PR #32).
-8. **Strip `assets/web/`** — pending; all screens native, verify on-car before stripping.
+2. ✅ **Strip removed features** — `lite/feature-strip-daemons` pushed, ready to merge → `lite/main`. Removed: Telegram, Singbox, Cloudflare, Zrok, MQTT, Trips, Remote Access, Traffic Monitor nav. Kept daemon-layer Java files that CameraDaemon.java (DO NOT MODIFY) or SurveillanceEngineGpu reference at compile time (mqtt/, trips/, telegram packages).
+3. **Recording Settings native** — `lite/feature-recording-settings-native`
+4. **Surveillance Settings native** — `lite/feature-surveillance-settings-native`
+5. **Performance native** — `lite/feature-performance-native`
+6. **ABRP native** — `lite/feature-abrp-native`
+7. **Logs native** (with enable/disable toggle) — `lite/feature-logs-native`
+8. **Strip `assets/web/`** — once all screens are native and verified on-car
 
 ---
 
