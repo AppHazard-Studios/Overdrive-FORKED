@@ -3,112 +3,44 @@ package com.overdrive.app.ui.util
 import android.content.Context
 import android.util.Log
 import com.overdrive.app.ui.model.RecordingFile
-import org.json.JSONObject
-import java.io.BufferedReader
 import java.io.File
-import java.io.FileReader
 import java.util.Calendar
 
 /**
  * Simplified Scanner - Uses Direct File Access (SOTA Architecture).
  * Since App owns the directory, we trust the Disk, not the Database.
- * 
- * SOTA: Reads configured storage paths from /data/local/tmp/overdrive_config.json
- * to support both internal storage and SD card.
+ *
+ * Delegates path resolution to StorageManager so the scanner always reads from
+ * exactly the same directories the daemon writes to — including SD card paths.
  */
 object RecordingScanner {
     private const val TAG = "RecordingScanner"
-    
-    // Default paths (internal storage)
-    private const val INTERNAL_BASE_DIR = "/storage/emulated/0/Overdrive"
-    private const val RECORDINGS_SUBDIR = "recordings"
-    private const val SURVEILLANCE_SUBDIR = "surveillance"
-    private const val PROXIMITY_SUBDIR = "proximity"
-    
-    // Config file location (same as StorageManager)
-    private const val CONFIG_FILE = "/data/local/tmp/overdrive_config.json"
-    
+
     // Simple cache to prevent IO spam on UI refresh
     private var cachedRecordings: List<RecordingFile>? = null
     private var cacheTimestamp: Long = 0
     private const val CACHE_VALIDITY_MS = 5000L // 5 seconds
-    
-    // Cached storage paths
+
+    // Cached storage paths — refreshed every 10s so SD card changes are picked up quickly
     private var cachedRecordingsDir: File? = null
     private var cachedSurveillanceDir: File? = null
     private var cachedProximityDir: File? = null
     private var configCacheTimestamp: Long = 0
-    private const val CONFIG_CACHE_VALIDITY_MS = 10000L // 10 seconds
-    
-    /**
-     * Load storage configuration and determine active directories.
-     *
-     * For SD card types, uses context.getExternalFilesDirs() rather than constructing
-     * a raw /storage/UUID/ path. The app UID has unconditional access to its own package
-     * directory on any external volume; direct access to /storage/UUID/ is blocked by
-     * FUSE/Android even with world-readable bits set by the daemon.
-     *
-     * StorageManager (daemon) writes to:
-     *   /storage/UUID/Android/data/com.overdrive.app/files/Overdrive/<subdir>/
-     *
-     * getExternalFilesDirs(null) returns:
-     *   /storage/UUID/Android/data/com.overdrive.app/files/
-     * so appending "Overdrive/<subdir>" gives the matching path.
-     */
+    private const val CONFIG_CACHE_VALIDITY_MS = 10_000L
+
     private fun loadStorageConfig(context: Context) {
         val now = System.currentTimeMillis()
         if (cachedRecordingsDir != null && now - configCacheTimestamp < CONFIG_CACHE_VALIDITY_MS) return
 
-        var recordingsStorageType = "INTERNAL"
-        var surveillanceStorageType = "INTERNAL"
-
-        try {
-            val configFile = File(CONFIG_FILE)
-            if (configFile.exists()) {
-                val config = JSONObject(configFile.readText())
-                val storage = config.optJSONObject("storage")
-                if (storage != null) {
-                    recordingsStorageType = storage.optString("recordingsStorageType", "INTERNAL")
-                    surveillanceStorageType = storage.optString("surveillanceStorageType", "INTERNAL")
-                }
-                Log.d(TAG, "Loaded config: recordings=$recordingsStorageType, surveillance=$surveillanceStorageType")
-            }
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not load storage config: ${e.message}")
-        }
-
-        // Resolve the SD card Overdrive base directory using the Android API.
-        // This gives us the exact path the app UID can access on removable storage.
-        var sdOverdriveBase: File? = null
-        if (recordingsStorageType == "SD_CARD" || surveillanceStorageType == "SD_CARD") {
-            val sdAppDir = context.getExternalFilesDirs(null).firstOrNull { dir ->
-                dir != null && dir.absolutePath.contains("/storage/") &&
-                    !dir.absolutePath.contains("/emulated/")
-            }
-            if (sdAppDir != null) {
-                sdOverdriveBase = File(sdAppDir, "Overdrive")
-                Log.d(TAG, "SD card app dir: ${sdAppDir.absolutePath}")
-            } else {
-                Log.w(TAG, "SD_CARD configured but no removable storage found via getExternalFilesDirs")
-            }
-        }
-
-        cachedRecordingsDir = if (recordingsStorageType == "SD_CARD" && sdOverdriveBase != null)
-            File(sdOverdriveBase, RECORDINGS_SUBDIR)
-        else
-            File(INTERNAL_BASE_DIR, RECORDINGS_SUBDIR)
-
-        cachedSurveillanceDir = if (surveillanceStorageType == "SD_CARD" && sdOverdriveBase != null)
-            File(sdOverdriveBase, SURVEILLANCE_SUBDIR)
-        else
-            File(INTERNAL_BASE_DIR, SURVEILLANCE_SUBDIR)
-
-        cachedProximityDir = if (surveillanceStorageType == "SD_CARD" && sdOverdriveBase != null)
-            File(sdOverdriveBase, PROXIMITY_SUBDIR)
-        else
-            File(INTERNAL_BASE_DIR, PROXIMITY_SUBDIR)
-
+        // StorageManager reads the same unified config as the daemon and resolves
+        // SD card paths via raw /storage/ enumeration — the same logic the daemon uses
+        // when deciding where to write recordings.
+        val sm = com.overdrive.app.storage.StorageManager.getInstance()
+        cachedRecordingsDir  = sm.recordingsDir
+        cachedSurveillanceDir = sm.surveillanceDir
+        cachedProximityDir   = sm.proximityDir
         configCacheTimestamp = now
+
         Log.d(TAG, "Active dirs: recordings=${cachedRecordingsDir?.absolutePath}, " +
             "surveillance=${cachedSurveillanceDir?.absolutePath}")
     }
