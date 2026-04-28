@@ -313,16 +313,6 @@ The recording pipeline is sacred — nothing changes there. UI and feature decis
 
 ### Dashboard Bugs to Fix First
 
-These are broken on the current `main` dashboard and must be fixed as the first commit on `lite/main` (or as a fix on `main` and cherry-picked):
-
-1. **Sentry card shows "OFF" even when sentry is enabled.** `DashboardFragment.kt` → `updateSentryCard()` — investigate what `/api/surveillance/status` actually returns vs what the parser expects. The `enabled`/`active` fields may be keyed differently than assumed.
-
-2. **Sentry events today count not shown.** Same method — `events_today` field may be missing or at a different JSON path.
-
-3. **Vehicle card missing SOC% and km range.** `DashboardFragment.kt` → `updateVehicleCard()` — currently reads from `/api/performance/battery` but SOC and range may not be in `voltageHistory`. Check what the daemon actually returns and fix the field path or switch to the `/status` endpoint which includes `soc` and `range`.
-
-Fix these before migrating anything else — they're quick and will be validated on the next car deploy.
-
 ---
 
 ### Native-First Mandate
