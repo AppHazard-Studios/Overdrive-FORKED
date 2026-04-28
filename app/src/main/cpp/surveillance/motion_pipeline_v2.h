@@ -117,7 +117,8 @@ struct QuadrantResultV2 {
     float meanLuma;             // Current mean luma (for debug/UI)
     bool  brightnessSuppressed; // Was this quadrant suppressed by Stage 1
     bool  shadowFiltered;       // Were blocks suppressed by shadow discrimination
-    
+    float speed;                // Centroid speed in blocks/frame (5-frame rolling avg), -1 if insufficient history
+
     // Per-block confidence (for heatmap overlay)
     float blockConfidence[V2_TOTAL_BLOCKS];
 };
