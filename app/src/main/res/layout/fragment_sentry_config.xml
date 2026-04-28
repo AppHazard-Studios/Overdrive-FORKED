@@ -867,7 +867,7 @@
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipCameraFront"
-                        style="@style/Widget.MaterialComponents.Chip.Filter"
+                        style="@style/Widget.Material3.Chip.Filter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true"
@@ -877,7 +877,7 @@
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipCameraRight"
-                        style="@style/Widget.MaterialComponents.Chip.Filter"
+                        style="@style/Widget.Material3.Chip.Filter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true"
@@ -887,7 +887,7 @@
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipCameraLeft"
-                        style="@style/Widget.MaterialComponents.Chip.Filter"
+                        style="@style/Widget.Material3.Chip.Filter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true"
@@ -897,7 +897,7 @@
 
                     <com.google.android.material.chip.Chip
                         android:id="@+id/chipCameraRear"
-                        style="@style/Widget.MaterialComponents.Chip.Filter"
+                        style="@style/Widget.Material3.Chip.Filter"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="true"
