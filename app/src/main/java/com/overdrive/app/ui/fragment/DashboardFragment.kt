@@ -86,9 +86,17 @@ class DashboardFragment : Fragment() {
             handler.postDelayed(this, REFRESH_INTERVAL_MS)
         }
     }
+    private val sentryRefreshRunnable = object : Runnable {
+        override fun run() {
+            val jwt = try { AuthManager.generateJwt() } catch (_: Exception) { null }
+            fetchSurveillanceStatus(jwt)
+            handler.postDelayed(this, SENTRY_REFRESH_MS)
+        }
+    }
 
     companion object {
         private const val REFRESH_INTERVAL_MS = 60_000L
+        private const val SENTRY_REFRESH_MS   = 10_000L
     }
 
     override fun onCreateView(
@@ -109,11 +117,13 @@ class DashboardFragment : Fragment() {
         super.onResume()
         fetchLiveData()
         handler.postDelayed(refreshRunnable, REFRESH_INTERVAL_MS)
+        handler.postDelayed(sentryRefreshRunnable, SENTRY_REFRESH_MS)
     }
 
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(refreshRunnable)
+        handler.removeCallbacks(sentryRefreshRunnable)
     }
 
     private fun initViews(view: View) {
@@ -335,7 +345,7 @@ class DashboardFragment : Fragment() {
         val status  = json.optJSONObject("status") ?: return
         val enabled = status.optBoolean("enabled", false)
         val active  = status.optBoolean("active",  false)
-        val events  = status.optInt("totalEventsToday", -1)
+        val events  = status.optInt("totalEventsToday", 0)
         val lastDet = status.optJSONArray("events")
             ?.let { arr -> if (arr.length() > 0) arr.getJSONObject(0).optString("time", null) else null }
 
@@ -354,7 +364,7 @@ class DashboardFragment : Fragment() {
             viewSentryAccent.setBackgroundColor(resources.getColor(accentColor, null))
         }
 
-        tvSurvEventsNum.text = if (events >= 0) "$events" else "--"
+        tvSurvEventsNum.text = "$events"
 
         if (events == 0 || lastDet.isNullOrEmpty()) {
             tvSurvLastDet.text = "All clear today"
