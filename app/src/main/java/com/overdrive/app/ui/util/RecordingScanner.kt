@@ -62,10 +62,11 @@ object RecordingScanner {
         // Load storage config to get active directories
         loadStorageConfig(context)
         
+        val internalBase = File("/storage/emulated/0/Overdrive")
         // Scan configured directories
-        val normal = scanDirectory(cachedRecordingsDir ?: File(INTERNAL_BASE_DIR, RECORDINGS_SUBDIR), RecordingFile.RecordingType.NORMAL)
-        val sentry = scanDirectory(cachedSurveillanceDir ?: File(INTERNAL_BASE_DIR, SURVEILLANCE_SUBDIR), RecordingFile.RecordingType.SENTRY)
-        val proximity = scanDirectory(cachedProximityDir ?: File(INTERNAL_BASE_DIR, PROXIMITY_SUBDIR), RecordingFile.RecordingType.PROXIMITY)
+        val normal = scanDirectory(cachedRecordingsDir ?: File(internalBase, com.overdrive.app.storage.StorageManager.RECORDINGS_SUBDIR), RecordingFile.RecordingType.NORMAL)
+        val sentry = scanDirectory(cachedSurveillanceDir ?: File(internalBase, com.overdrive.app.storage.StorageManager.SURVEILLANCE_SUBDIR), RecordingFile.RecordingType.SENTRY)
+        val proximity = scanDirectory(cachedProximityDir ?: File(internalBase, com.overdrive.app.storage.StorageManager.PROXIMITY_SUBDIR), RecordingFile.RecordingType.PROXIMITY)
         
         val allFiles = (normal + sentry + proximity).sortedByDescending { it.timestamp }
         
@@ -126,7 +127,7 @@ object RecordingScanner {
      */
     fun getRecordingsDir(context: Context): File {
         loadStorageConfig(context)
-        return cachedRecordingsDir ?: File(INTERNAL_BASE_DIR, RECORDINGS_SUBDIR)
+        return cachedRecordingsDir ?: File("/storage/emulated/0/Overdrive", com.overdrive.app.storage.StorageManager.RECORDINGS_SUBDIR)
     }
     
     /**
@@ -134,7 +135,7 @@ object RecordingScanner {
      */
     fun getSentryEventsDir(context: Context): File {
         loadStorageConfig(context)
-        return cachedSurveillanceDir ?: File(INTERNAL_BASE_DIR, SURVEILLANCE_SUBDIR)
+        return cachedSurveillanceDir ?: File("/storage/emulated/0/Overdrive", com.overdrive.app.storage.StorageManager.SURVEILLANCE_SUBDIR)
     }
     
     /**
@@ -142,7 +143,7 @@ object RecordingScanner {
      */
     fun getProximityEventsDir(context: Context): File {
         loadStorageConfig(context)
-        return cachedProximityDir ?: File(INTERNAL_BASE_DIR, PROXIMITY_SUBDIR)
+        return cachedProximityDir ?: File("/storage/emulated/0/Overdrive", com.overdrive.app.storage.StorageManager.PROXIMITY_SUBDIR)
     }
     
     /**
