@@ -273,58 +273,6 @@ If this is ever wanted: implement `StatusOverlayService` as a foreground service
 
 ---
 
-## Current Focus — Native Lite Rebuild (`lite/main`)
-
-**Goal:** Strip the app down to exactly what's used. All screens go native Kotlin. Remove every unused daemon, page, and dependency. Apply a consistent modern design system throughout.
-
-The recording pipeline is sacred — nothing changes there. UI and feature decisions are the target.
-
----
-
-### What We're Keeping
-
-| Feature | Notes |
-|---|---|
-| Recording (camera, storage, events, playback) | Core feature — no changes to pipeline |
-| Surveillance / Sentry | Core feature — keep full settings |
-| ABRP (Better Route Planner) | Keep — migrate from WebView to native |
-| Performance monitoring | Keep — migrate from WebView to native |
-| Logs | Keep — migrate to native, add enable/disable toggle |
-| Recording Settings | Keep — migrate from WebView to native |
-| Surveillance Settings | Keep — migrate from WebView to native |
-| Dashboard | Keep — fix existing bugs first |
-
-### What We're Removing
-
-| Feature | What to delete |
-|---|---|
-| Telegram bot | `TelegramBotDaemon.java`, `TelegramDaemonController.kt`, Telegram settings screen, all nav entries |
-| Singbox / GlobalProxy | `GlobalProxyDaemon.java`, `SingboxController.kt`, `SingboxLauncher.kt`, nav entries |
-| Cloudflare tunnel | `CloudflaredController.kt`, nav entries, Remote Access screen tunnels section |
-| Zrok tunnel | `ZrokController.kt`, nav entries, Remote Access screen tunnels section |
-| Remote Access screen | `RemoteAccessFragment.kt`, `fragment_remote_access.xml`, nav entry |
-| MQTT | `MqttConnectionManager.java`, `MqttPublisherService.java`, MQTT settings screen, nav entry |
-| Trip analysis | Trips screen, nav entry — underlying `TripDatabase` may stay if other features use it |
-| Traffic monitor | Remove from sidebar nav only — the underlying monitor can stay dormant |
-| All WebView screens | Replace each with native Kotlin before shipping `lite/main` |
-| Remote web UI assets | `assets/web/` — strip once all native screens are complete |
-
----
-
-### Dashboard Bugs to Fix First
-
-These are broken on the current `main` dashboard and must be fixed as the first commit on `lite/main` (or as a fix on `main` and cherry-picked):
-
-1. **Sentry card shows "OFF" even when sentry is enabled.** `DashboardFragment.kt` → `updateSentryCard()` — investigate what `/api/surveillance/status` actually returns vs what the parser expects. The `enabled`/`active` fields may be keyed differently than assumed.
-
-2. **Sentry events today count not shown.** Same method — `events_today` field may be missing or at a different JSON path.
-
-3. **Vehicle card missing SOC% and km range.** `DashboardFragment.kt` → `updateVehicleCard()` — currently reads from `/api/performance/battery` but SOC and range may not be in `voltageHistory`. Check what the daemon actually returns and fix the field path or switch to the `/status` endpoint which includes `soc` and `range`.
-
-Fix these before migrating anything else — they're quick and will be validated on the next car deploy.
-
----
-
 ### Native-First Mandate
 
 On `lite/main`, **no screen is a WebView**. Every settings page, status page, and tool is a native Kotlin Fragment with XML or Compose layout.
@@ -382,16 +330,6 @@ All native screens on `lite/main` follow this design language. Do not deviate fr
 
 ### Migration Order
 
-Work in this order. Each screen is one branch + one PR into `lite/main`.
-
-1. **Dashboard bug fixes** — `fix/dashboard-status` → `lite/main`
-2. **Strip removed features** — `lite/feature-strip-daemons` — remove Telegram, Singbox, Cloudflare, Zrok, MQTT, Trips, Remote Access, Traffic Monitor nav entry. Remove their controllers/launchers. One large PR.
-3. **Recording Settings native** — `lite/feature-recording-settings-native`
-4. **Surveillance Settings native** — `lite/feature-surveillance-settings-native`
-5. **Performance native** — `lite/feature-performance-native`
-6. **ABRP native** — `lite/feature-abrp-native`
-7. **Logs native** (with enable/disable toggle) — `lite/feature-logs-native`
-8. **Strip `assets/web/`** — once all screens are native and verified on-car
 
 ---
 
