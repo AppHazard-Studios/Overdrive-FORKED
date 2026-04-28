@@ -61,23 +61,25 @@ tasks.matching { it.name.contains("CMake") || it.name.contains("ExternalNative")
 
 // OpenCV-mobile version for surveillance module (minimal build, ~3MB vs ~20MB)
 // https://github.com/nihui/opencv-mobile
+// NOTE: release tags are sequential integers, not version strings (v4.10.0 = tag v28)
 val opencvMobileVersion = "4.10.0"
+val opencvMobileReleaseTag = "v28"
 tasks.register("downloadOpenCV") {
     val opencvDir = file("src/main/cpp/opencv")
-    
+
     doLast {
         val libDir = file("${opencvDir}/lib/arm64-v8a")
         libDir.mkdirs()
         val includeDir = file("${opencvDir}/include")
-        
+
         // opencv-mobile uses static library (.a)
         val staticLib = file("${libDir}/libopencv_core.a")
-        
+
         if (!staticLib.exists()) {
             println("Downloading opencv-mobile ${opencvMobileVersion} for Android...")
-            
-            // Correct URL format: /releases/download/vVERSION/
-            val zipUrl = "https://github.com/nihui/opencv-mobile/releases/download/v${opencvMobileVersion}/opencv-mobile-${opencvMobileVersion}-android.zip"
+
+            // nihui/opencv-mobile uses sequential integer tags, not version strings
+            val zipUrl = "https://github.com/nihui/opencv-mobile/releases/download/${opencvMobileReleaseTag}/opencv-mobile-${opencvMobileVersion}-android.zip"
             val zipFile = file("${opencvDir}/opencv-mobile-android.zip")
             
             try {
