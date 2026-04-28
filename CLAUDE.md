@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-## What This Project Is
+## What This Project Is 
 
 Fork of OverDrive — an Android dashcam/sentry app that runs on BYD DiLink v3 head units (not a phone). Uses the car's built-in cameras, parking radar, and vehicle APIs.
 
