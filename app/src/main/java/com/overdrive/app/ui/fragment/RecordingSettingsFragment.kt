@@ -83,7 +83,8 @@ class RecordingSettingsFragment : Fragment() {
         val bitrate = p.getString("bitrate", "MEDIUM") ?: "MEDIUM"
         val codec = p.getString("codec", "H264") ?: "H264"
         val streaming = p.getString("streaming", "LQ") ?: "LQ"
-        toggleQuality.check(if (quality == "HIGH") R.id.btnQualityHigh else R.id.btnQualityNormal)
+        // "Full" (btnQualityNormal) = NORMAL; "Reduced" (btnQualityHigh) = REDUCED
+        toggleQuality.check(if (quality == "REDUCED") R.id.btnQualityHigh else R.id.btnQualityNormal)
         toggleBitrate.check(when (bitrate) {
             "LOW" -> R.id.btnBitrateLow
             "HIGH" -> R.id.btnBitrateHigh
@@ -91,8 +92,8 @@ class RecordingSettingsFragment : Fragment() {
         })
         toggleCodec.check(if (codec == "H265") R.id.btnCodecH265 else R.id.btnCodecH264)
         toggleStreaming.check(when (streaming) {
-            "MQ" -> R.id.btnStreamingMq
-            "HQ" -> R.id.btnStreamingHq
+            "MQ", "MEDIUM" -> R.id.btnStreamingMq
+            "HQ", "HIGH" -> R.id.btnStreamingHq
             else -> R.id.btnStreamingLq
         })
 
@@ -236,103 +237,109 @@ class RecordingSettingsFragment : Fragment() {
     }
 
     private suspend fun fetchAndApplyQualityAndMode() {
-        try {
-            val qualityJson = getJson("/api/settings/quality")
-            val modeJson = getJson("/api/recording/mode")
-            val unifiedJson = getJson("/api/settings/unified")
+        // Fetch each endpoint independently — a timeout on one must not blank the whole page.
+        val qualityJson = runCatching { getJson("/api/settings/quality") }.getOrNull()
+        val modeJson = runCatching { getJson("/api/recording/mode") }.getOrNull()
+        val unifiedJson = runCatching { getJson("/api/settings/unified") }.getOrNull()
 
-            withContext(Dispatchers.Main) {
-                isInitializing = true
+        if (qualityJson == null && modeJson == null && unifiedJson == null) {
+            android.util.Log.w("RecordingSettings", "All quality/mode endpoints unreachable — using prefs")
+            return
+        }
 
+        withContext(Dispatchers.Main) {
+            isInitializing = true
+
+            if (qualityJson != null) {
+                // Daemon quality values: LOW / REDUCED / NORMAL (no "HIGH" — it is silently rejected)
+                // UI maps: "Full" (btnQualityNormal) → NORMAL, "Reduced" (btnQualityHigh) → REDUCED
                 val quality = qualityJson.optString("recordingQuality", "NORMAL")
                 val bitrate = qualityJson.optString("recordingBitrate", "MEDIUM")
                 val codec = qualityJson.optString("recordingCodec", "H264")
+                // Daemon streaming values: LQ, HQ, LOW, MEDIUM, HIGH, MQ not accepted — use MEDIUM
                 val streaming = qualityJson.optString("streamingQuality", "LQ")
 
-                toggleQuality.check(if (quality == "HIGH") R.id.btnQualityHigh else R.id.btnQualityNormal)
-                toggleBitrate.check(
-                    when (bitrate) {
-                        "LOW" -> R.id.btnBitrateLow
-                        "HIGH" -> R.id.btnBitrateHigh
-                        else -> R.id.btnBitrateMedium
-                    }
-                )
+                toggleQuality.check(if (quality == "REDUCED") R.id.btnQualityHigh else R.id.btnQualityNormal)
+                toggleBitrate.check(when (bitrate) {
+                    "LOW" -> R.id.btnBitrateLow
+                    "HIGH" -> R.id.btnBitrateHigh
+                    else -> R.id.btnBitrateMedium
+                })
                 toggleCodec.check(if (codec == "H265") R.id.btnCodecH265 else R.id.btnCodecH264)
-                toggleStreaming.check(
-                    when (streaming) {
-                        "MQ" -> R.id.btnStreamingMq
-                        "HQ" -> R.id.btnStreamingHq
-                        else -> R.id.btnStreamingLq
-                    }
-                )
+                toggleStreaming.check(when (streaming) {
+                    "MQ", "MEDIUM" -> R.id.btnStreamingMq
+                    "HQ", "HIGH", "ULTRA_HIGH" -> R.id.btnStreamingHq
+                    else -> R.id.btnStreamingLq
+                })
 
-                val unifiedConfig = unifiedJson.optJSONObject("config")
-                val modeFromUnified = unifiedConfig?.optJSONObject("recording")?.optString("mode")
-                val mode = modeFromUnified?.takeIf { it.isNotEmpty() }
-                    ?: modeJson.optString("mode", "NONE")
-
-                toggleMode.check(
-                    when (mode) {
-                        "CONTINUOUS" -> R.id.btnModeContinuous
-                        "ACC_ONLY" -> R.id.btnModeAccOnly
-                        "PROXIMITY_GUARD" -> R.id.btnModeProximity
-                        else -> R.id.btnModeNone
-                    }
-                )
-                cardProximityGuard.visibility =
-                    if (mode == "PROXIMITY_GUARD") View.VISIBLE else View.GONE
-
-                val proxGuard = unifiedConfig?.optJSONObject("proximityGuard")
-                if (proxGuard != null) {
-                    val triggerLevel = proxGuard.optString("triggerLevel", "RED")
-                    toggleTriggerLevel.check(
-                        when (triggerLevel) {
-                            "YELLOW" -> R.id.btnTriggerYellow
-                            "ORANGE" -> R.id.btnTriggerOrange
-                            else -> R.id.btnTriggerRed
-                        }
-                    )
-                    val preRecord = proxGuard.optInt("preRecordSeconds", 5)
-                        .toFloat().coerceIn(sliderPreRecord.valueFrom, sliderPreRecord.valueTo)
-                    val postRecord = proxGuard.optInt("postRecordSeconds", 10)
-                        .toFloat().coerceIn(sliderPostRecord.valueFrom, sliderPostRecord.valueTo)
-                    sliderPreRecord.value = preRecord
-                    tvPreRecordValue.text = "${preRecord.toInt()}s"
-                    sliderPostRecord.value = postRecord
-                    tvPostRecordValue.text = "${postRecord.toInt()}s"
-                }
-
-                isInitializing = false
-                hasUnsavedChanges = false
-                btnApply.isEnabled = false
-
-                // Keep prefs in sync with what daemon reported
-                val resolvedMode = when (toggleMode.checkedButtonId) {
-                    R.id.btnModeContinuous -> "CONTINUOUS"
-                    R.id.btnModeAccOnly -> "ACC_ONLY"
-                    R.id.btnModeProximity -> "PROXIMITY_GUARD"
-                    else -> "NONE"
-                }
                 prefs().edit()
-                    .putString("quality", if (toggleQuality.checkedButtonId == R.id.btnQualityHigh) "HIGH" else "NORMAL")
-                    .putString("bitrate", when (toggleBitrate.checkedButtonId) {
-                        R.id.btnBitrateLow -> "LOW"; R.id.btnBitrateHigh -> "HIGH"; else -> "MEDIUM"
-                    })
-                    .putString("codec", if (toggleCodec.checkedButtonId == R.id.btnCodecH265) "H265" else "H264")
-                    .putString("streaming", when (toggleStreaming.checkedButtonId) {
-                        R.id.btnStreamingMq -> "MQ"; R.id.btnStreamingHq -> "HQ"; else -> "LQ"
-                    })
-                    .putString("mode", resolvedMode)
-                    .putString("trigger_level", when (toggleTriggerLevel.checkedButtonId) {
-                        R.id.btnTriggerYellow -> "YELLOW"; R.id.btnTriggerOrange -> "ORANGE"; else -> "RED"
-                    })
-                    .putInt("pre_record", sliderPreRecord.value.toInt())
-                    .putInt("post_record", sliderPostRecord.value.toInt())
+                    .putString("quality", quality)
+                    .putString("bitrate", bitrate)
+                    .putString("codec", codec)
+                    .putString("streaming", streamingDaemonToPrefs(streaming))
                     .apply()
             }
-        } catch (e: Exception) {
-            android.util.Log.w("RecordingSettings", "Failed to load quality/mode: ${e.message}")
+
+            val daemonMode = modeJson?.optString("mode", "NONE") ?: "NONE"
+            val unifiedConfig = unifiedJson?.optJSONObject("config")
+            val modeFromUnified = unifiedConfig?.optJSONObject("recording")?.optString("mode")
+                ?.takeIf { it.isNotEmpty() }
+            val mode = modeFromUnified ?: daemonMode
+
+            toggleMode.check(when (mode) {
+                "CONTINUOUS" -> R.id.btnModeContinuous
+                "ACC_ONLY" -> R.id.btnModeAccOnly
+                "PROXIMITY_GUARD" -> R.id.btnModeProximity
+                else -> R.id.btnModeNone
+            })
+            cardProximityGuard.visibility = if (mode == "PROXIMITY_GUARD") View.VISIBLE else View.GONE
+
+            val proxGuard = unifiedConfig?.optJSONObject("proximityGuard")
+            if (proxGuard != null) {
+                val triggerLevel = proxGuard.optString("triggerLevel", "RED")
+                toggleTriggerLevel.check(when (triggerLevel) {
+                    "YELLOW" -> R.id.btnTriggerYellow
+                    "ORANGE" -> R.id.btnTriggerOrange
+                    else -> R.id.btnTriggerRed
+                })
+                val preRecord = proxGuard.optInt("preRecordSeconds", 5)
+                    .toFloat().coerceIn(sliderPreRecord.valueFrom, sliderPreRecord.valueTo)
+                val postRecord = proxGuard.optInt("postRecordSeconds", 10)
+                    .toFloat().coerceIn(sliderPostRecord.valueFrom, sliderPostRecord.valueTo)
+                sliderPreRecord.value = preRecord
+                tvPreRecordValue.text = "${preRecord.toInt()}s"
+                sliderPostRecord.value = postRecord
+                tvPostRecordValue.text = "${postRecord.toInt()}s"
+
+                prefs().edit()
+                    .putString("trigger_level", triggerLevel)
+                    .putInt("pre_record", preRecord.toInt())
+                    .putInt("post_record", postRecord.toInt())
+                    .apply()
+            }
+
+            prefs().edit().putString("mode", mode).apply()
+
+            isInitializing = false
+            hasUnsavedChanges = false
+            btnApply.isEnabled = false
+
+            // If unified config has a saved mode but daemon is at NONE (just started),
+            // re-apply the mode so the daemon actually starts in the correct mode.
+            if (mode != "NONE" && daemonMode == "NONE" && modeFromUnified != null) {
+                launch(Dispatchers.IO) {
+                    runCatching {
+                        postJson("/api/recording/mode", JSONObject().apply { put("mode", mode) })
+                    }
+                }
+            }
         }
+    }
+
+    private fun streamingDaemonToPrefs(daemonValue: String): String = when (daemonValue) {
+        "MQ", "MEDIUM" -> "MQ"
+        "HQ", "HIGH", "ULTRA_HIGH" -> "HQ"
+        else -> "LQ"
     }
 
     private suspend fun fetchAndApplyStorage() {
@@ -449,15 +456,18 @@ class RecordingSettingsFragment : Fragment() {
     private fun applySettings() {
         btnApply.isEnabled = false
 
-        val quality = if (toggleQuality.checkedButtonId == R.id.btnQualityHigh) "HIGH" else "NORMAL"
+        // Quality: daemon accepts NORMAL/REDUCED/LOW only — "HIGH" is silently rejected.
+        // "Full" button → NORMAL, "Reduced" button → REDUCED.
+        val quality = if (toggleQuality.checkedButtonId == R.id.btnQualityHigh) "REDUCED" else "NORMAL"
         val bitrate = when (toggleBitrate.checkedButtonId) {
             R.id.btnBitrateLow -> "LOW"
             R.id.btnBitrateHigh -> "HIGH"
             else -> "MEDIUM"
         }
         val codec = if (toggleCodec.checkedButtonId == R.id.btnCodecH265) "H265" else "H264"
+        // Streaming: daemon accepts LQ/HQ/MEDIUM — "MQ" is silently rejected, use MEDIUM.
         val streaming = when (toggleStreaming.checkedButtonId) {
-            R.id.btnStreamingMq -> "MQ"
+            R.id.btnStreamingMq -> "MEDIUM"
             R.id.btnStreamingHq -> "HQ"
             else -> "LQ"
         }

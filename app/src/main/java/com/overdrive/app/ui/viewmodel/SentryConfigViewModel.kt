@@ -288,9 +288,11 @@ class SentryConfigViewModel : ViewModel() {
                 // V2 pipeline settings
                 put("environmentPreset", currentConfig.environmentPreset)
                 put("detectionZone", currentConfig.detectionZone)
-                put("loiteringTimeSeconds", currentConfig.loiteringTimeSeconds)
+                // IPC server reads "loiteringTime" (no "Seconds" suffix)
+                put("loiteringTime", currentConfig.loiteringTimeSeconds)
                 put("sensitivityLevel", currentConfig.sensitivityLevel)
-                put("shadowFilterMode", currentConfig.shadowFilterMode)
+                // IPC server reads "shadowFilter" (no "Mode" suffix)
+                put("shadowFilter", currentConfig.shadowFilterMode)
                 put("cameraFront", currentConfig.cameraFrontEnabled)
                 put("cameraRight", currentConfig.cameraRightEnabled)
                 put("cameraLeft", currentConfig.cameraLeftEnabled)
@@ -537,9 +539,11 @@ class SentryConfigViewModel : ViewModel() {
             // V2 pipeline settings
             environmentPreset = json.optString("environmentPreset", "outdoor"),
             detectionZone = json.optString("detectionZone", "normal"),
-            loiteringTimeSeconds = json.optInt("loiteringTimeSeconds", 3),
+            // IPC server uses "loiteringTime"; fall back to "loiteringTimeSeconds" for compat
+            loiteringTimeSeconds = json.optInt("loiteringTime", json.optInt("loiteringTimeSeconds", 3)),
             sensitivityLevel = json.optInt("sensitivityLevel", 3),
-            shadowFilterMode = json.optInt("shadowFilterMode", 2),
+            // IPC server uses "shadowFilter"; fall back to "shadowFilterMode" for compat
+            shadowFilterMode = json.optInt("shadowFilter", json.optInt("shadowFilterMode", 2)),
             cameraFrontEnabled = json.optBoolean("cameraFront", true),
             cameraRightEnabled = json.optBoolean("cameraRight", true),
             cameraLeftEnabled = json.optBoolean("cameraLeft", true),

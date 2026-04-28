@@ -978,7 +978,7 @@ public class SurveillanceIpcServer implements Runnable {
                 sensitivityLevel = 5;  // Aggressive
             }
             config.put("sensitivity", sensitivityLevel);
-            
+
             // SOTA: Return distance as slider value (1-5) based on minObjectSize
             float minSize = sentryConfig.getMinObjectSize();
             int distanceLevel;
@@ -994,6 +994,18 @@ public class SurveillanceIpcServer implements Runnable {
                 distanceLevel = 5;  // ~15m (far)
             }
             config.put("distance", distanceLevel);
+
+            // V2 pipeline settings — previously missing from GET_CONFIG response
+            config.put("environmentPreset", sentryConfig.getEnvironmentPreset());
+            config.put("detectionZone", sentryConfig.getDetectionZone());
+            config.put("loiteringTime", sentryConfig.getLoiteringTimeSeconds());
+            config.put("sensitivityLevel", sentryConfig.getSensitivityLevel());
+            config.put("shadowFilter", sentryConfig.getShadowFilterMode());
+            boolean[] cams = sentryConfig.getCameraEnabled();
+            config.put("cameraFront", cams.length > 0 && cams[0]);
+            config.put("cameraRight", cams.length > 1 && cams[1]);
+            config.put("cameraLeft",  cams.length > 2 && cams[2]);
+            config.put("cameraRear",  cams.length > 3 && cams[3]);
         } else {
             // Defaults when no config available
             config.put("sensitivity", 3);  // Default (slider value 1-5)
@@ -1007,6 +1019,16 @@ public class SurveillanceIpcServer implements Runnable {
             config.put("preEventBufferSeconds", 5);
             config.put("postEventBufferSeconds", 10);
             config.put("blockSensitivity", 0.04);
+            // V2 defaults
+            config.put("environmentPreset", "outdoor");
+            config.put("detectionZone", "normal");
+            config.put("loiteringTime", 3);
+            config.put("sensitivityLevel", 3);
+            config.put("shadowFilter", 2);
+            config.put("cameraFront", true);
+            config.put("cameraRight", true);
+            config.put("cameraLeft", true);
+            config.put("cameraRear", true);
             config.put("requiredActiveBlocks", 2);
         }
         

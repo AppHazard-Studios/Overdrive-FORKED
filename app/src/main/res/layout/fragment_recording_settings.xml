@@ -155,7 +155,7 @@
                                         android:layout_width="0dp"
                                         android:layout_height="34dp"
                                         android:layout_weight="1"
-                                        android:text="Normal"
+                                        android:text="Full"
                                         style="@style/Widget.Overdrive.Button.Toggle" />
 
                                     <com.google.android.material.button.MaterialButton
@@ -163,7 +163,7 @@
                                         android:layout_width="0dp"
                                         android:layout_height="34dp"
                                         android:layout_weight="1"
-                                        android:text="High"
+                                        android:text="Reduced"
                                         style="@style/Widget.Overdrive.Button.Toggle" />
 
                                 </com.google.android.material.button.MaterialButtonToggleGroup>
