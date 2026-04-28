@@ -376,7 +376,7 @@ All native screens on `lite/main` follow this design language. Do not deviate fr
 
 **Spacing:** 8dp base unit. Card padding `16dp`. Inter-card gap `12dp`. Section gap `24dp`.
 
-**DiLink-specific:** The screen is landscape 1280×480dp (approximately). Design for landscape-first. Cards should be wide and short, not tall. Avoid vertical scrolling where possible — prefer tab-style or horizontal layout within the screen.
+**DiLink-specific:** The physical screen is 1920×1080px. At xhdpi density (1.5×), this is approximately **1280×720dp** in Android layout units. Design for landscape-first. At 720dp tall there is real vertical room — use it. Two-column layouts work well. Scrolling is acceptable for settings screens but should not be required for dashboards or status screens.
 
 ---
 
