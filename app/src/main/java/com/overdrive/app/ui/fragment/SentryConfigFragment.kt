@@ -153,7 +153,10 @@ class SentryConfigFragment : Fragment() {
     private lateinit var btnApply: MaterialButton
 
     private var hasUnsavedChanges = false
-    
+
+    // SharedPreferences — primary persistence; works without daemon
+    private lateinit var prefs: android.content.SharedPreferences
+
     // Flag to prevent listener callbacks during initialization
     private var isInitializing = false
     
@@ -167,12 +170,14 @@ class SentryConfigFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+        prefs = requireContext().getSharedPreferences("sentry_settings", android.content.Context.MODE_PRIVATE)
         initViews(view)
         setupListeners()
         observeViewModel()
         loadStorageSettings()
-        
+
+        // Show saved values immediately — daemon config overrides these if/when it connects
+        loadFromPrefs()
         viewModel.loadConfig()
     }
     
@@ -663,6 +668,50 @@ class SentryConfigFragment : Fragment() {
             .show()
     }
     
+    private fun loadFromPrefs() {
+        // Only apply if prefs contain saved values (key presence check)
+        if (!prefs.contains("sentry_bitrate")) return
+        val distance = prefs.getInt("sentry_distance", 3)
+        // updateUiFromConfig drives the distance slider via minObjectSize, not distance int,
+        // so derive minObjectSize from the saved distance so the slider lands in the right spot.
+        val minObjectSize = distanceMap[distance]?.first ?: 0.12f
+        val config = SentryConfigViewModel.SentryConfig(
+            enabled = prefs.getBoolean("sentry_enabled", false),
+            distance = distance,
+            sensitivity = prefs.getInt("sentry_sensitivity", 3),
+            minObjectSize = minObjectSize,
+            flashImmunity = prefs.getInt("sentry_flash_immunity", 2),
+            detectPerson = prefs.getBoolean("sentry_detect_person", true),
+            detectCar = prefs.getBoolean("sentry_detect_car", true),
+            detectBike = prefs.getBoolean("sentry_detect_bike", true),
+            preEventBufferSeconds = prefs.getInt("sentry_pre_buffer", 5),
+            postEventBufferSeconds = prefs.getInt("sentry_post_buffer", 10),
+            bitrate = prefs.getString("sentry_bitrate", "MEDIUM") ?: "MEDIUM",
+            codec = prefs.getString("sentry_codec", "H264") ?: "H264"
+        )
+        updateUiFromConfig(config)
+    }
+
+    private fun saveToPrefs(
+        enabled: Boolean, distance: Int, sensitivity: Int, flashImmunity: Int,
+        detectPerson: Boolean, detectCar: Boolean, detectBike: Boolean,
+        preBuffer: Int, postBuffer: Int, bitrate: String, codec: String
+    ) {
+        prefs.edit()
+            .putBoolean("sentry_enabled", enabled)
+            .putInt("sentry_distance", distance)
+            .putInt("sentry_sensitivity", sensitivity)
+            .putInt("sentry_flash_immunity", flashImmunity)
+            .putBoolean("sentry_detect_person", detectPerson)
+            .putBoolean("sentry_detect_car", detectCar)
+            .putBoolean("sentry_detect_bike", detectBike)
+            .putInt("sentry_pre_buffer", preBuffer)
+            .putInt("sentry_post_buffer", postBuffer)
+            .putString("sentry_bitrate", bitrate)
+            .putString("sentry_codec", codec)
+            .apply()
+    }
+
     private fun applySettings() {
         // Get distance from slider
         val distance = sliderDistance.value.toInt()
@@ -690,8 +739,6 @@ class SentryConfigFragment : Fragment() {
         val storageLimitMb = sliderSurveillanceLimit.value.toLong()
         
         // Apply all settings
-        // Distance slider (1-5) controls minObjectSize via IPC server mapping
-        // Sensitivity slider (1-5) controls requiredBlocks via IPC server mapping
         viewModel.setDistance(distance)
         viewModel.setSensitivity(sensitivity)
         viewModel.setFlashImmunity(flashImmunity)
@@ -737,20 +784,36 @@ class SentryConfigFragment : Fragment() {
 
         switchMotionHeatmap?.let { viewModel.setMotionHeatmap(it.isChecked) }
         switchFilterDebugLog?.let { viewModel.setFilterDebugLog(it.isChecked) }
-        
+
+        // Persist to SharedPreferences immediately — works without daemon
+        saveToPrefs(
+            enabled = switchEnabled.isChecked,
+            distance = distance,
+            sensitivity = sensitivity,
+            flashImmunity = flashImmunity,
+            detectPerson = cbDetectPerson.isChecked,
+            detectCar = cbDetectCar.isChecked,
+            detectBike = cbDetectBike.isChecked,
+            preBuffer = sliderPreBuffer.value.toInt(),
+            postBuffer = sliderPostBuffer.value.toInt(),
+            bitrate = bitrate,
+            codec = codec
+        )
+
+
         // Save storage limit to unified config and trigger cleanup
         saveStorageLimit(storageLimitMb)
-        
+
         // Save CDR cleanup settings if changed
         saveCdrSettings()
-        
-        // Save to server
+
+        // Send to daemon (best-effort; failure is logged, not shown to user)
         viewModel.saveConfig()
-        
+
         hasUnsavedChanges = false
         btnApply.isEnabled = false
-        
-        Toast.makeText(context, "Settings applied", Toast.LENGTH_LONG).show()
+
+        Toast.makeText(context, "Settings applied", Toast.LENGTH_SHORT).show()
     }
     
     private fun saveCdrSettings() {
@@ -945,8 +1008,11 @@ class SentryConfigFragment : Fragment() {
         }
         
         viewModel.error.observe(viewLifecycleOwner) { error ->
-            if (error != null) {
+            if (error != null && !error.contains("Cannot connect to daemon")) {
+                // Show real daemon errors (config rejected, etc.) but not connectivity noise
                 Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+            } else if (error != null) {
+                android.util.Log.d("SentryConfig", "Daemon not reachable: $error")
             }
         }
     }
@@ -1039,8 +1105,23 @@ class SentryConfigFragment : Fragment() {
         // Reset unsaved state after loading
         hasUnsavedChanges = false
         btnApply.isEnabled = false
-        
+
         isInitializing = false
+
+        // Keep SharedPreferences in sync so values survive navigation without daemon
+        saveToPrefs(
+            enabled = config.enabled,
+            distance = config.distance,
+            sensitivity = config.sensitivity,
+            flashImmunity = config.flashImmunity,
+            detectPerson = config.detectPerson,
+            detectCar = config.detectCar,
+            detectBike = config.detectBike,
+            preBuffer = config.preEventBufferSeconds,
+            postBuffer = config.postEventBufferSeconds,
+            bitrate = config.bitrate,
+            codec = config.codec
+        )
     }
     
     // Convert minObjectSize to distance slider value (1-5)
