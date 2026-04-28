@@ -28,7 +28,6 @@ class RecordingSettingsFragment : Fragment() {
     private lateinit var toggleQuality: MaterialButtonToggleGroup
     private lateinit var toggleBitrate: MaterialButtonToggleGroup
     private lateinit var toggleCodec: MaterialButtonToggleGroup
-    private lateinit var toggleStreaming: MaterialButtonToggleGroup
     private lateinit var toggleStorageType: MaterialButtonToggleGroup
     private lateinit var sliderLimit: Slider
     private lateinit var tvLimitValue: TextView
@@ -82,7 +81,6 @@ class RecordingSettingsFragment : Fragment() {
         val quality = p.getString("quality", "NORMAL") ?: "NORMAL"
         val bitrate = p.getString("bitrate", "MEDIUM") ?: "MEDIUM"
         val codec = p.getString("codec", "H264") ?: "H264"
-        val streaming = p.getString("streaming", "LQ") ?: "LQ"
         // "Full" (btnQualityNormal) = NORMAL; "Reduced" (btnQualityHigh) = REDUCED
         toggleQuality.check(if (quality == "REDUCED") R.id.btnQualityHigh else R.id.btnQualityNormal)
         toggleBitrate.check(when (bitrate) {
@@ -91,11 +89,6 @@ class RecordingSettingsFragment : Fragment() {
             else -> R.id.btnBitrateMedium
         })
         toggleCodec.check(if (codec == "H265") R.id.btnCodecH265 else R.id.btnCodecH264)
-        toggleStreaming.check(when (streaming) {
-            "MQ", "MEDIUM" -> R.id.btnStreamingMq
-            "HQ", "HIGH" -> R.id.btnStreamingHq
-            else -> R.id.btnStreamingLq
-        })
 
         currentStorageType = p.getString("storage_type", "INTERNAL") ?: "INTERNAL"
         toggleStorageType.check(if (currentStorageType == "SD_CARD") R.id.btnStorageSdCard else R.id.btnStorageInternal)
@@ -126,7 +119,7 @@ class RecordingSettingsFragment : Fragment() {
         btnApply.isEnabled = false
     }
 
-    private fun saveToPrefs(quality: String, bitrate: String, codec: String, streaming: String,
+    private fun saveToPrefs(quality: String, bitrate: String, codec: String,
                             mode: String, triggerLevel: String, preRecord: Int, postRecord: Int,
                             limitMb: Int, storageType: String, telemetryEnabled: Boolean) {
         prefs().edit()
@@ -134,7 +127,6 @@ class RecordingSettingsFragment : Fragment() {
             .putString("quality", quality)
             .putString("bitrate", bitrate)
             .putString("codec", codec)
-            .putString("streaming", streaming)
             .putString("storage_type", storageType)
             .putInt("limit_mb", limitMb)
             .putBoolean("telemetry", telemetryEnabled)
@@ -149,7 +141,6 @@ class RecordingSettingsFragment : Fragment() {
         toggleQuality = view.findViewById(R.id.toggleQuality)
         toggleBitrate = view.findViewById(R.id.toggleBitrate)
         toggleCodec = view.findViewById(R.id.toggleCodec)
-        toggleStreaming = view.findViewById(R.id.toggleStreaming)
         toggleStorageType = view.findViewById(R.id.toggleStorageType)
         sliderLimit = view.findViewById(R.id.sliderLimit)
         tvLimitValue = view.findViewById(R.id.tvLimitValue)
@@ -177,7 +168,7 @@ class RecordingSettingsFragment : Fragment() {
             }
         }
 
-        listOf(toggleQuality, toggleBitrate, toggleCodec, toggleStreaming).forEach { group ->
+        listOf(toggleQuality, toggleBitrate, toggleCodec).forEach { group ->
             group.addOnButtonCheckedListener { _, _, isChecked -> if (isChecked && !isInitializing) markChanged() }
         }
 
@@ -256,8 +247,6 @@ class RecordingSettingsFragment : Fragment() {
                 val quality = qualityJson.optString("recordingQuality", "NORMAL")
                 val bitrate = qualityJson.optString("recordingBitrate", "MEDIUM")
                 val codec = qualityJson.optString("recordingCodec", "H264")
-                // Daemon streaming values: LQ, HQ, LOW, MEDIUM, HIGH, MQ not accepted — use MEDIUM
-                val streaming = qualityJson.optString("streamingQuality", "LQ")
 
                 toggleQuality.check(if (quality == "REDUCED") R.id.btnQualityHigh else R.id.btnQualityNormal)
                 toggleBitrate.check(when (bitrate) {
@@ -266,17 +255,11 @@ class RecordingSettingsFragment : Fragment() {
                     else -> R.id.btnBitrateMedium
                 })
                 toggleCodec.check(if (codec == "H265") R.id.btnCodecH265 else R.id.btnCodecH264)
-                toggleStreaming.check(when (streaming) {
-                    "MQ", "MEDIUM" -> R.id.btnStreamingMq
-                    "HQ", "HIGH", "ULTRA_HIGH" -> R.id.btnStreamingHq
-                    else -> R.id.btnStreamingLq
-                })
 
                 prefs().edit()
                     .putString("quality", quality)
                     .putString("bitrate", bitrate)
                     .putString("codec", codec)
-                    .putString("streaming", streamingDaemonToPrefs(streaming))
                     .apply()
             }
 
@@ -334,12 +317,6 @@ class RecordingSettingsFragment : Fragment() {
                 }
             }
         }
-    }
-
-    private fun streamingDaemonToPrefs(daemonValue: String): String = when (daemonValue) {
-        "MQ", "MEDIUM" -> "MQ"
-        "HQ", "HIGH", "ULTRA_HIGH" -> "HQ"
-        else -> "LQ"
     }
 
     private suspend fun fetchAndApplyStorage() {
@@ -465,12 +442,6 @@ class RecordingSettingsFragment : Fragment() {
             else -> "MEDIUM"
         }
         val codec = if (toggleCodec.checkedButtonId == R.id.btnCodecH265) "H265" else "H264"
-        // Streaming: daemon accepts LQ/HQ/MEDIUM — "MQ" is silently rejected, use MEDIUM.
-        val streaming = when (toggleStreaming.checkedButtonId) {
-            R.id.btnStreamingMq -> "MEDIUM"
-            R.id.btnStreamingHq -> "HQ"
-            else -> "LQ"
-        }
         val mode = when (toggleMode.checkedButtonId) {
             R.id.btnModeContinuous -> "CONTINUOUS"
             R.id.btnModeAccOnly -> "ACC_ONLY"
@@ -487,7 +458,7 @@ class RecordingSettingsFragment : Fragment() {
         val limitMb = sliderLimit.value.toInt()
         val telemetryEnabled = switchTelemetry.isChecked
 
-        saveToPrefs(quality, bitrate, codec, streaming, mode, triggerLevel, preRecord, postRecord,
+        saveToPrefs(quality, bitrate, codec, mode, triggerLevel, preRecord, postRecord,
             limitMb, currentStorageType, telemetryEnabled)
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
@@ -498,7 +469,6 @@ class RecordingSettingsFragment : Fragment() {
                 postJson(
                     "/api/settings/quality", JSONObject().apply {
                         put("recordingQuality", quality)
-                        put("streamingQuality", streaming)
                         put("recordingBitrate", bitrate)
                         put("recordingCodec", codec)
                     }
@@ -606,7 +576,8 @@ class RecordingSettingsFragment : Fragment() {
         conn.readTimeout = 5000
         try {
             conn.outputStream.use { it.write(body.toString().toByteArray()) }
-            conn.inputStream.close()
+            val code = conn.responseCode
+            (if (code >= 400) conn.errorStream else conn.inputStream)?.close()
         } finally {
             conn.disconnect()
         }

@@ -12,6 +12,7 @@ import com.overdrive.app.R
 import com.overdrive.app.ui.viewmodel.SentryConfigViewModel
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.chip.Chip
 import com.google.android.material.slider.Slider
 import com.google.android.material.switchmaterial.SwitchMaterial
@@ -37,9 +38,9 @@ class SentryConfigFragment : Fragment() {
     private lateinit var tvSensitivityHint: TextView
     private lateinit var sliderFlashImmunity: Slider
     private lateinit var tvFlashImmunityValue: TextView
-    private lateinit var cbDetectPerson: Chip
-    private lateinit var cbDetectCar: Chip
-    private lateinit var cbDetectBike: Chip
+    private lateinit var cbDetectPerson: MaterialCheckBox
+    private lateinit var cbDetectCar: MaterialCheckBox
+    private lateinit var cbDetectBike: MaterialCheckBox
     
     // Distance to minObjectSize mapping (SOTA: Quadrant-Relative 15% Rule)
     // These values are relative to QUADRANT height in 2x2 mosaic
