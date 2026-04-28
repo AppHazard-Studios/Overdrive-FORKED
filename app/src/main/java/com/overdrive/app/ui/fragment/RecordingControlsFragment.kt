@@ -98,9 +98,12 @@ class RecordingControlsFragment : Fragment() {
     private var pendingCdrReservedMb: Long? = null
     private var pendingCdrProtectedHours: Int? = null
     private var hasUnsavedChanges = false
-    
+
     // Flag to prevent listener callbacks during initialization
     private var isInitializing = false
+
+    // Retry counter for config file load (daemon may not have written it yet on first launch)
+    private var configLoadAttempts = 0
     
     // Saved values (currently applied)
     private var savedQuality: String = "NORMAL"
@@ -126,7 +129,7 @@ class RecordingControlsFragment : Fragment() {
     
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        
+        configLoadAttempts = 0
         initViews(view)
         setupClickListeners()
         observeViewModel()
@@ -753,7 +756,7 @@ class RecordingControlsFragment : Fragment() {
                             loadedRecordingMode = fileMode
                         }
                     }
-                    
+
                     // Load proximity guard settings
                     val proximityGuard = unified.optJSONObject("proximityGuard")
                     if (proximityGuard != null) {
@@ -761,14 +764,26 @@ class RecordingControlsFragment : Fragment() {
                         loadedPreRecord = proximityGuard.optInt("preRecordSeconds", 5)
                         loadedPostRecord = proximityGuard.optInt("postRecordSeconds", 10)
                     }
-                    
+
                     // Load storage limit
                     val storage = unified.optJSONObject("storage")
                     if (storage != null) {
                         loadedStorageLimit = storage.optLong("recordingsLimitMb", 500)
                     }
-                    
+
                     android.util.Log.d("RecordingControls", "Loaded from unified config: bitrate=$loadedBitrate, codec=$loadedCodec, quality=$loadedQuality, mode=$loadedRecordingMode, storageLimit=$loadedStorageLimit")
+                } else {
+                    // Config file not written yet — daemon is still starting up.
+                    // Retry every 5s for up to 30s so settings populate once the daemon is ready.
+                    configLoadAttempts++
+                    if (configLoadAttempts < 6) {
+                        android.util.Log.d("RecordingControls", "Config file absent, retry #$configLoadAttempts in 5s")
+                        activity?.runOnUiThread {
+                            view?.postDelayed({
+                                if (isAdded && !hasUnsavedChanges) loadCurrentQualitySettings()
+                            }, 5_000)
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 android.util.Log.w("RecordingControls", "Could not read unified config: ${e.message}")
