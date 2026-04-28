@@ -252,47 +252,6 @@
 
                         </com.google.android.material.button.MaterialButtonToggleGroup>
 
-                        <!-- Streaming quality row -->
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Streaming Quality"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="12sp"
-                            android:layout_marginBottom="6dp" />
-
-                        <com.google.android.material.button.MaterialButtonToggleGroup
-                            android:id="@+id/toggleStreaming"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            style="@style/Widget.Overdrive.ButtonToggleGroup">
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnStreamingLq"
-                                android:layout_width="0dp"
-                                android:layout_height="34dp"
-                                android:layout_weight="1"
-                                android:text="LQ"
-                                style="@style/Widget.Overdrive.Button.Toggle" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnStreamingMq"
-                                android:layout_width="0dp"
-                                android:layout_height="34dp"
-                                android:layout_weight="1"
-                                android:text="MQ"
-                                style="@style/Widget.Overdrive.Button.Toggle" />
-
-                            <com.google.android.material.button.MaterialButton
-                                android:id="@+id/btnStreamingHq"
-                                android:layout_width="0dp"
-                                android:layout_height="34dp"
-                                android:layout_weight="1"
-                                android:text="HQ"
-                                style="@style/Widget.Overdrive.Button.Toggle" />
-
-                        </com.google.android.material.button.MaterialButtonToggleGroup>
-
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 

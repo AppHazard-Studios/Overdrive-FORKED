@@ -38,11 +38,6 @@
             android:title="ABRP" />
 
         <item
-            android:id="@+id/performanceFragment"
-            android:icon="@drawable/ic_performance"
-            android:title="Performance" />
-
-        <item
             android:id="@+id/logsFragment"
             android:icon="@drawable/ic_download_log"
             android:title="Logs" />
