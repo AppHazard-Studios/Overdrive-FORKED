@@ -44,7 +44,7 @@
                     app:boxBackgroundColor="@color/bg_elevated"
                     app:boxStrokeColor="@color/card_border"
                     app:hintTextColor="@color/text_muted"
-                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/etAbrpToken"

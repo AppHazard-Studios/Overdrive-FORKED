@@ -1,5 +1,6 @@
 package com.overdrive.app.ui.fragment
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -59,7 +60,87 @@ class RecordingSettingsFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         initViews(view)
         setupListeners()
+        applyDefaultsFromPrefs()
         loadAllSettings()
+    }
+
+    private fun prefs() = requireContext().getSharedPreferences("recording_settings", Context.MODE_PRIVATE)
+
+    private fun applyDefaultsFromPrefs() {
+        val p = prefs()
+        isInitializing = true
+
+        val mode = p.getString("mode", "NONE") ?: "NONE"
+        toggleMode.check(when (mode) {
+            "CONTINUOUS" -> R.id.btnModeContinuous
+            "ACC_ONLY" -> R.id.btnModeAccOnly
+            "PROXIMITY_GUARD" -> R.id.btnModeProximity
+            else -> R.id.btnModeNone
+        })
+        cardProximityGuard.visibility = if (mode == "PROXIMITY_GUARD") View.VISIBLE else View.GONE
+
+        val quality = p.getString("quality", "NORMAL") ?: "NORMAL"
+        val bitrate = p.getString("bitrate", "MEDIUM") ?: "MEDIUM"
+        val codec = p.getString("codec", "H264") ?: "H264"
+        val streaming = p.getString("streaming", "LQ") ?: "LQ"
+        toggleQuality.check(if (quality == "HIGH") R.id.btnQualityHigh else R.id.btnQualityNormal)
+        toggleBitrate.check(when (bitrate) {
+            "LOW" -> R.id.btnBitrateLow
+            "HIGH" -> R.id.btnBitrateHigh
+            else -> R.id.btnBitrateMedium
+        })
+        toggleCodec.check(if (codec == "H265") R.id.btnCodecH265 else R.id.btnCodecH264)
+        toggleStreaming.check(when (streaming) {
+            "MQ" -> R.id.btnStreamingMq
+            "HQ" -> R.id.btnStreamingHq
+            else -> R.id.btnStreamingLq
+        })
+
+        currentStorageType = p.getString("storage_type", "INTERNAL") ?: "INTERNAL"
+        toggleStorageType.check(if (currentStorageType == "SD_CARD") R.id.btnStorageSdCard else R.id.btnStorageInternal)
+
+        val limitMb = p.getInt("limit_mb", 500)
+        val sliderVal = limitMb.toFloat().coerceIn(sliderLimit.valueFrom, sliderLimit.valueTo)
+        sliderLimit.value = sliderVal
+        tvLimitValue.text = if (limitMb >= 1000) "${limitMb / 1000} GB" else "$limitMb MB"
+        tvStorageLimit.text = "$limitMb MB limit"
+
+        switchTelemetry.isChecked = p.getBoolean("telemetry", false)
+
+        val triggerLevel = p.getString("trigger_level", "RED") ?: "RED"
+        toggleTriggerLevel.check(when (triggerLevel) {
+            "YELLOW" -> R.id.btnTriggerYellow
+            "ORANGE" -> R.id.btnTriggerOrange
+            else -> R.id.btnTriggerRed
+        })
+        val preRecord = p.getInt("pre_record", 5).toFloat().coerceIn(sliderPreRecord.valueFrom, sliderPreRecord.valueTo)
+        val postRecord = p.getInt("post_record", 10).toFloat().coerceIn(sliderPostRecord.valueFrom, sliderPostRecord.valueTo)
+        sliderPreRecord.value = preRecord
+        tvPreRecordValue.text = "${preRecord.toInt()}s"
+        sliderPostRecord.value = postRecord
+        tvPostRecordValue.text = "${postRecord.toInt()}s"
+
+        isInitializing = false
+        hasUnsavedChanges = false
+        btnApply.isEnabled = false
+    }
+
+    private fun saveToPrefs(quality: String, bitrate: String, codec: String, streaming: String,
+                            mode: String, triggerLevel: String, preRecord: Int, postRecord: Int,
+                            limitMb: Int, storageType: String, telemetryEnabled: Boolean) {
+        prefs().edit()
+            .putString("mode", mode)
+            .putString("quality", quality)
+            .putString("bitrate", bitrate)
+            .putString("codec", codec)
+            .putString("streaming", streaming)
+            .putString("storage_type", storageType)
+            .putInt("limit_mb", limitMb)
+            .putBoolean("telemetry", telemetryEnabled)
+            .putString("trigger_level", triggerLevel)
+            .putInt("pre_record", preRecord)
+            .putInt("post_record", postRecord)
+            .apply()
     }
 
     private fun initViews(view: View) {
@@ -224,6 +305,30 @@ class RecordingSettingsFragment : Fragment() {
                 isInitializing = false
                 hasUnsavedChanges = false
                 btnApply.isEnabled = false
+
+                // Keep prefs in sync with what daemon reported
+                val resolvedMode = when (toggleMode.checkedButtonId) {
+                    R.id.btnModeContinuous -> "CONTINUOUS"
+                    R.id.btnModeAccOnly -> "ACC_ONLY"
+                    R.id.btnModeProximity -> "PROXIMITY_GUARD"
+                    else -> "NONE"
+                }
+                prefs().edit()
+                    .putString("quality", if (toggleQuality.checkedButtonId == R.id.btnQualityHigh) "HIGH" else "NORMAL")
+                    .putString("bitrate", when (toggleBitrate.checkedButtonId) {
+                        R.id.btnBitrateLow -> "LOW"; R.id.btnBitrateHigh -> "HIGH"; else -> "MEDIUM"
+                    })
+                    .putString("codec", if (toggleCodec.checkedButtonId == R.id.btnCodecH265) "H265" else "H264")
+                    .putString("streaming", when (toggleStreaming.checkedButtonId) {
+                        R.id.btnStreamingMq -> "MQ"; R.id.btnStreamingHq -> "HQ"; else -> "LQ"
+                    })
+                    .putString("mode", resolvedMode)
+                    .putString("trigger_level", when (toggleTriggerLevel.checkedButtonId) {
+                        R.id.btnTriggerYellow -> "YELLOW"; R.id.btnTriggerOrange -> "ORANGE"; else -> "RED"
+                    })
+                    .putInt("pre_record", sliderPreRecord.value.toInt())
+                    .putInt("post_record", sliderPostRecord.value.toInt())
+                    .apply()
             }
         } catch (e: Exception) {
             android.util.Log.w("RecordingSettings", "Failed to load quality/mode: ${e.message}")
@@ -273,6 +378,12 @@ class RecordingSettingsFragment : Fragment() {
                 }
 
                 isInitializing = false
+
+                // Keep prefs in sync with what daemon reported
+                prefs().edit()
+                    .putInt("limit_mb", limitMb)
+                    .putString("storage_type", storageType)
+                    .apply()
             }
         } catch (e: Exception) {
             android.util.Log.w("RecordingSettings", "Failed to load storage: ${e.message}")
@@ -309,8 +420,10 @@ class RecordingSettingsFragment : Fragment() {
 
             withContext(Dispatchers.Main) {
                 isInitializing = true
-                switchTelemetry.isChecked = json.optBoolean("enabled", false)
+                val enabled = json.optBoolean("enabled", false)
+                switchTelemetry.isChecked = enabled
                 isInitializing = false
+                prefs().edit().putBoolean("telemetry", enabled).apply()
             }
         } catch (e: Exception) {
             android.util.Log.w("RecordingSettings", "Failed to load telemetry: ${e.message}")
@@ -364,7 +477,11 @@ class RecordingSettingsFragment : Fragment() {
         val limitMb = sliderLimit.value.toInt()
         val telemetryEnabled = switchTelemetry.isChecked
 
+        saveToPrefs(quality, bitrate, codec, streaming, mode, triggerLevel, preRecord, postRecord,
+            limitMb, currentStorageType, telemetryEnabled)
+
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
+            var daemonReachable = false
             var success = true
 
             runCatching {
@@ -376,6 +493,7 @@ class RecordingSettingsFragment : Fragment() {
                         put("recordingCodec", codec)
                     }
                 )
+                daemonReachable = true
             }.onFailure {
                 android.util.Log.w("RecordingSettings", "Failed to save quality: ${it.message}")
                 success = false
@@ -447,6 +565,7 @@ class RecordingSettingsFragment : Fragment() {
             withContext(Dispatchers.Main) {
                 hasUnsavedChanges = false
                 val msg = when {
+                    !daemonReachable -> "Settings saved. Will apply when daemon connects."
                     !success -> "Some settings may not have saved"
                     codec == "H265" -> "Applied — H.265 takes effect on next recording"
                     else -> "Settings applied"
