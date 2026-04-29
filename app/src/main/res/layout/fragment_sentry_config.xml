@@ -608,39 +608,6 @@
 
                     </com.google.android.material.button.MaterialButtonToggleGroup>
 
-                    <!-- Codec -->
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginBottom="6dp"
-                        android:text="Codec"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp" />
-
-                    <com.google.android.material.button.MaterialButtonToggleGroup
-                        android:id="@+id/toggleCodec"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        app:singleSelection="true"
-                        app:selectionRequired="true">
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnCodecH264"
-                            style="@style/Widget.Overdrive.Button.Toggle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="H.264" />
-
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/btnCodecH265"
-                            style="@style/Widget.Overdrive.Button.Toggle"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="H.265" />
-
-                    </com.google.android.material.button.MaterialButtonToggleGroup>
 
                     <View
                         android:layout_width="match_parent"

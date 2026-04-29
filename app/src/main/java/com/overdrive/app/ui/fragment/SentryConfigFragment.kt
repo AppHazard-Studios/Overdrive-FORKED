@@ -79,7 +79,6 @@ class SentryConfigFragment : Fragment() {
     private lateinit var sliderPostBuffer: Slider
     private lateinit var tvPostBufferValue: TextView
     private lateinit var toggleBitrate: MaterialButtonToggleGroup
-    private lateinit var toggleCodec: MaterialButtonToggleGroup
     
     // Storage settings
     private lateinit var sliderSurveillanceLimit: Slider
@@ -206,7 +205,7 @@ class SentryConfigFragment : Fragment() {
         sliderPostBuffer = view.findViewById(R.id.sliderPostBuffer)
         tvPostBufferValue = view.findViewById(R.id.tvPostBufferValue)
         toggleBitrate = view.findViewById(R.id.toggleBitrate)
-        toggleCodec = view.findViewById(R.id.toggleCodec)
+
         
         // Storage
         sliderSurveillanceLimit = view.findViewById(R.id.sliderSurveillanceLimit)
@@ -343,9 +342,7 @@ class SentryConfigFragment : Fragment() {
         }
         
         // Codec toggle
-        toggleCodec.addOnButtonCheckedListener { _, _, isChecked ->
-            if (isChecked && !isInitializing) markChanged()
-        }
+
 
         // V2 Engine Settings listeners
         toggleEnvironmentPreset?.addOnButtonCheckedListener { _, _, isChecked ->
@@ -688,7 +685,7 @@ class SentryConfigFragment : Fragment() {
             preEventBufferSeconds = prefs.getInt("sentry_pre_buffer", 5),
             postEventBufferSeconds = prefs.getInt("sentry_post_buffer", 10),
             bitrate = prefs.getString("sentry_bitrate", "MEDIUM") ?: "MEDIUM",
-            codec = prefs.getString("sentry_codec", "H264") ?: "H264"
+            codec = "H264"
         )
         updateUiFromConfig(config)
     }
@@ -696,7 +693,7 @@ class SentryConfigFragment : Fragment() {
     private fun saveToPrefs(
         enabled: Boolean, distance: Int, sensitivity: Int, flashImmunity: Int,
         detectPerson: Boolean, detectCar: Boolean, detectBike: Boolean,
-        preBuffer: Int, postBuffer: Int, bitrate: String, codec: String
+        preBuffer: Int, postBuffer: Int, bitrate: String
     ) {
         prefs.edit()
             .putBoolean("sentry_enabled", enabled)
@@ -709,7 +706,6 @@ class SentryConfigFragment : Fragment() {
             .putInt("sentry_pre_buffer", preBuffer)
             .putInt("sentry_post_buffer", postBuffer)
             .putString("sentry_bitrate", bitrate)
-            .putString("sentry_codec", codec)
             .apply()
     }
 
@@ -730,12 +726,6 @@ class SentryConfigFragment : Fragment() {
             else -> "MEDIUM"
         }
         
-        val codec = when (toggleCodec.checkedButtonId) {
-            R.id.btnCodecH264 -> "H264"
-            R.id.btnCodecH265 -> "H265"
-            else -> "H264"
-        }
-        
         // Get storage limit
         val storageLimitMb = sliderSurveillanceLimit.value.toLong()
         
@@ -749,7 +739,7 @@ class SentryConfigFragment : Fragment() {
         viewModel.setPreEventBuffer(sliderPreBuffer.value.toInt())
         viewModel.setPostEventBuffer(sliderPostBuffer.value.toInt())
         viewModel.setBitrate(bitrate)
-        viewModel.setCodec(codec)
+        viewModel.setCodec("H264")
 
         // V2 Engine Settings
         val preset = when (toggleEnvironmentPreset?.checkedButtonId) {
@@ -797,10 +787,8 @@ class SentryConfigFragment : Fragment() {
             detectBike = cbDetectBike.isChecked,
             preBuffer = sliderPreBuffer.value.toInt(),
             postBuffer = sliderPostBuffer.value.toInt(),
-            bitrate = bitrate,
-            codec = codec
+            bitrate = bitrate
         )
-
 
         // Save storage limit to unified config and trigger cleanup
         saveStorageLimit(storageLimitMb)
@@ -1061,14 +1049,6 @@ class SentryConfigFragment : Fragment() {
         }
         toggleBitrate.check(bitrateBtnId)
         
-        // Codec
-        val codecBtnId = when (config.codec) {
-            "H264" -> R.id.btnCodecH264
-            "H265" -> R.id.btnCodecH265
-            else -> R.id.btnCodecH264
-        }
-        toggleCodec.check(codecBtnId)
-
         // V2 Engine Settings
         val presetBtnId = when (config.environmentPreset) {
             "garage" -> R.id.btnPresetGarage
@@ -1120,8 +1100,7 @@ class SentryConfigFragment : Fragment() {
             detectBike = config.detectBike,
             preBuffer = config.preEventBufferSeconds,
             postBuffer = config.postEventBufferSeconds,
-            bitrate = config.bitrate,
-            codec = config.codec
+            bitrate = config.bitrate
         )
     }
     
