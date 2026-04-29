@@ -159,7 +159,20 @@ class SentryConfigFragment : Fragment() {
 
     // Flag to prevent listener callbacks during initialization
     private var isInitializing = false
-    
+
+    // Environment preset slider values
+    private data class PresetValues(
+        val sensitivity: Int, val distance: Int, val flashImmunity: Int,
+        val shadowMode: Int, val loiteringSeconds: Int
+    )
+    private val presetDefaults = mapOf(
+        "outdoor" to PresetValues(sensitivity=3, distance=3, flashImmunity=1, shadowMode=2, loiteringSeconds=3),
+        "garage"  to PresetValues(sensitivity=2, distance=2, flashImmunity=2, shadowMode=1, loiteringSeconds=2),
+        "street"  to PresetValues(sensitivity=4, distance=3, flashImmunity=3, shadowMode=3, loiteringSeconds=5)
+    )
+    // Last named preset sent to backend — Custom mode still forwards this
+    private var lastPreset = "outdoor"
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -292,25 +305,28 @@ class SentryConfigFragment : Fragment() {
                 val distance = value.toInt()
                 tvDistanceValue.text = distanceMap[distance]?.second ?: "~8m"
                 tvDistanceHint.text = distanceMap[distance]?.third ?: ""
+                switchToCustomIfNeeded()
                 markChanged()
             }
         }
-        
+
         // Sensitivity slider
         sliderSensitivity.addOnChangeListener { _, value, fromUser ->
             if (fromUser && !isInitializing) {
                 val sensitivity = value.toInt()
                 tvSensitivityValue.text = sensitivityMap[sensitivity]?.first ?: "Default"
                 tvSensitivityHint.text = sensitivityMap[sensitivity]?.third ?: ""
+                switchToCustomIfNeeded()
                 markChanged()
             }
         }
-        
+
         // Flash immunity slider
         sliderFlashImmunity.addOnChangeListener { _, value, fromUser ->
             if (fromUser && !isInitializing) {
                 val level = value.toInt()
                 tvFlashImmunityValue.text = flashImmunityMap[level] ?: "MEDIUM"
+                switchToCustomIfNeeded()
                 markChanged()
             }
         }
@@ -341,12 +357,17 @@ class SentryConfigFragment : Fragment() {
             if (isChecked && !isInitializing) markChanged()
         }
         
-        // Codec toggle
-
-
         // V2 Engine Settings listeners
-        toggleEnvironmentPreset?.addOnButtonCheckedListener { _, _, isChecked ->
-            if (isChecked && !isInitializing) markChanged()
+        toggleEnvironmentPreset?.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked && !isInitializing) {
+                when (checkedId) {
+                    R.id.btnPresetOutdoor -> { lastPreset = "outdoor"; applyPresetToUi("outdoor") }
+                    R.id.btnPresetGarage  -> { lastPreset = "garage";  applyPresetToUi("garage")  }
+                    R.id.btnPresetStreet  -> { lastPreset = "street";  applyPresetToUi("street")  }
+                    // Custom button: no preset applied, sliders stay as-is
+                }
+                markChanged()
+            }
         }
         toggleDetectionZone?.addOnButtonCheckedListener { _, _, isChecked ->
             if (isChecked && !isInitializing) markChanged()
@@ -354,11 +375,15 @@ class SentryConfigFragment : Fragment() {
         sliderLoiteringTime?.addOnChangeListener { _, value, fromUser ->
             if (fromUser && !isInitializing) {
                 tvLoiteringValue?.text = "${value.toInt()}s"
+                switchToCustomIfNeeded()
                 markChanged()
             }
         }
         toggleShadowFilter?.addOnButtonCheckedListener { _, _, isChecked ->
-            if (isChecked && !isInitializing) markChanged()
+            if (isChecked && !isInitializing) {
+                switchToCustomIfNeeded()
+                markChanged()
+            }
         }
         chipCameraFront?.setOnCheckedChangeListener { _, _ -> if (!isInitializing) markChanged() }
         chipCameraRight?.setOnCheckedChangeListener { _, _ -> if (!isInitializing) markChanged() }
@@ -741,10 +766,11 @@ class SentryConfigFragment : Fragment() {
         viewModel.setBitrate(bitrate)
         viewModel.setCodec("H264")
 
-        // V2 Engine Settings
+        // V2 Engine Settings — Custom mode forwards lastPreset to backend unchanged
         val preset = when (toggleEnvironmentPreset?.checkedButtonId) {
-            R.id.btnPresetGarage -> "garage"
-            R.id.btnPresetStreet -> "street"
+            R.id.btnPresetGarage  -> "garage"
+            R.id.btnPresetStreet  -> "street"
+            R.id.btnPresetCustom  -> lastPreset
             else -> "outdoor"
         }
         viewModel.setEnvironmentPreset(preset)
@@ -1050,12 +1076,17 @@ class SentryConfigFragment : Fragment() {
         toggleBitrate.check(bitrateBtnId)
         
         // V2 Engine Settings
-        val presetBtnId = when (config.environmentPreset) {
+        val loadedPreset = when (config.environmentPreset) {
+            "garage" -> "garage"
+            "street" -> "street"
+            else -> "outdoor"
+        }
+        lastPreset = loadedPreset
+        toggleEnvironmentPreset?.check(when (loadedPreset) {
             "garage" -> R.id.btnPresetGarage
             "street" -> R.id.btnPresetStreet
             else -> R.id.btnPresetOutdoor
-        }
-        toggleEnvironmentPreset?.check(presetBtnId)
+        })
 
         val zoneBtnId = when (config.detectionZone) {
             "close" -> R.id.btnZoneClose
@@ -1104,6 +1135,42 @@ class SentryConfigFragment : Fragment() {
         )
     }
     
+    private fun applyPresetToUi(preset: String) {
+        val p = presetDefaults[preset] ?: return
+        isInitializing = true
+
+        sliderSensitivity.value = p.sensitivity.toFloat()
+        tvSensitivityValue.text = sensitivityMap[p.sensitivity]?.first ?: "Default"
+        tvSensitivityHint.text = sensitivityMap[p.sensitivity]?.third ?: ""
+
+        sliderDistance.value = p.distance.toFloat()
+        tvDistanceValue.text = distanceMap[p.distance]?.second ?: "~8m"
+        tvDistanceHint.text = distanceMap[p.distance]?.third ?: ""
+
+        sliderFlashImmunity.value = p.flashImmunity.toFloat()
+        tvFlashImmunityValue.text = flashImmunityMap[p.flashImmunity] ?: "NORMAL"
+
+        sliderLoiteringTime?.value = p.loiteringSeconds.toFloat()
+        tvLoiteringValue?.text = "${p.loiteringSeconds}s"
+
+        toggleShadowFilter?.check(when (p.shadowMode) {
+            0 -> R.id.btnShadowOff
+            1 -> R.id.btnShadowLight
+            3 -> R.id.btnShadowAggressive
+            else -> R.id.btnShadowNormal
+        })
+
+        isInitializing = false
+    }
+
+    private fun switchToCustomIfNeeded() {
+        if (toggleEnvironmentPreset?.checkedButtonId != R.id.btnPresetCustom) {
+            isInitializing = true
+            toggleEnvironmentPreset?.check(R.id.btnPresetCustom)
+            isInitializing = false
+        }
+    }
+
     // Convert minObjectSize to distance slider value (1-5)
     // SOTA: Quadrant-relative thresholds
     // 1 = near (large threshold), 5 = far (small threshold)

@@ -159,6 +159,14 @@
                             android:layout_weight="1"
                             android:text="Street" />
 
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnPresetCustom"
+                            style="@style/Widget.Overdrive.Button.Toggle"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Custom" />
+
                     </com.google.android.material.button.MaterialButtonToggleGroup>
 
                     <!-- Detection Distance -->
