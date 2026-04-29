@@ -72,15 +72,18 @@ public class GpuPipelineConfig {
         }
     }
     
-    // Recording modes (legacy - now uses BitratePreset)
+    // Recording modes
     public enum RecordingMode {
-        NORMAL(15, 6_000_000),      // 15 FPS, 6 Mbps
-        SENTRY(10, 2_000_000),      // 10 FPS, 2 Mbps (idle)
-        SENTRY_EVENT(10, 5_000_000); // 10 FPS, 5 Mbps (event)
-        
+        EFFICIENT(15, 4_000_000),    // 15 FPS, 4 Mbps — reduces encoder load
+        BALANCED(20, 8_000_000),     // 20 FPS, 8 Mbps — default
+        QUALITY(25, 12_000_000),     // 25 FPS, 12 Mbps — maximum fidelity
+        NORMAL(15, 6_000_000),       // Legacy alias → maps to EFFICIENT behaviour in daemon
+        SENTRY(10, 2_000_000),       // Sentry idle
+        SENTRY_EVENT(10, 5_000_000); // Sentry event
+
         public final int fps;
         public final int bitrate;
-        
+
         RecordingMode(int fps, int bitrate) {
             this.fps = fps;
             this.bitrate = bitrate;
@@ -158,7 +161,14 @@ public class GpuPipelineConfig {
     public RecordingMode getRecordingMode() {
         return recordingMode;
     }
-    
+
+    /**
+     * Gets the FPS for the current recording mode.
+     */
+    public int getRecordingFps() {
+        return recordingMode.fps;
+    }
+
     /**
      * Sets the recording mode.
      */
