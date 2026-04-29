@@ -40,8 +40,10 @@ public class MotionPipelineV2 {
     // Old config: up to maxDistanceRow = 56 bytes (varies by alignment)
     // New config: + shadowFilterMode(4) + chromaRatioTolerance(4) + shadowPixelFraction(4) + oscillationThreshold(4) = +16 bytes
     // Old result: brightnessSuppressed(1) + 3 padding = ends at same offset
-    // New result: brightnessSuppressed(1) + shadowFiltered(1) + 2 padding
+    // New result: brightnessSuppressed(1) + shadowFiltered(1) + 2 padding + speed(4) + blockConfidence[70*4=280]
+    //   = 1+3 + 4+4+4+4+4+4+4 + 1+1+2+4 + 280 = 320 bytes (316 without speed field)
     private boolean nativeHasShadowFilter = false;
+    private boolean nativeHasSpeed = false;
     
     // Pre-allocated direct ByteBuffers for JNI (zero GC)
     private ByteBuffer configBuffer;
@@ -66,6 +68,7 @@ public class MotionPipelineV2 {
         public float meanLuma;
         public boolean brightnessSuppressed;
         public boolean shadowFiltered;
+        public float speed = -1.0f;  // centroid speed in blocks/frame (5-frame avg); -1 if insufficient history
         public float[] blockConfidence = new float[TOTAL_BLOCKS];
     }
     
@@ -96,7 +99,7 @@ public class MotionPipelineV2 {
         
         // Stage 5: Behavioral
         public float loiteringRadiusBlocks = 2.5f;
-        public int loiteringFrames = 30;  // 3 seconds at 10 FPS
+        public int loiteringFrames = 10;  // 1 second at 10 FPS — sufficient for spatial range check
         
         // Per-quadrant enable
         public boolean[] quadrantEnabled = {true, true, true, true};
@@ -205,7 +208,7 @@ public class MotionPipelineV2 {
                 case "outdoor":
                     applySensitivity(3);
                     applyDetectionZone("normal");
-                    loiteringFrames = 30;  // 3 seconds
+                    loiteringFrames = 10;  // 1 second (spatial range check is fast to converge)
                     brightnessShiftThreshold = 0.15f;
                     edgeDiffThreshold = 20;
                     // FIX: Fast-motion ghosting — at 10 FPS a person crosses a 32px block
@@ -225,7 +228,7 @@ public class MotionPipelineV2 {
                 case "garage":
                     applySensitivity(4);
                     applyDetectionZone("close");
-                    loiteringFrames = 20;  // 2 seconds
+                    loiteringFrames = 10;  // 1 second (garage: close range, quick confirmation)
                     brightnessShiftThreshold = 0.08f;
                     edgeDiffThreshold = 15;
                     // Garage: no tree shadows, but fluorescent flicker possible — light filtering
@@ -237,7 +240,7 @@ public class MotionPipelineV2 {
                 case "street":
                     applySensitivity(3);
                     applyDetectionZone("normal");
-                    loiteringFrames = 50;  // 5 seconds
+                    loiteringFrames = 10;  // 1 second (street: same spatial range check, YOLO confirms)
                     brightnessShiftThreshold = 0.15f;
                     edgeDiffThreshold = 20;
                     // FIX: Fast-motion ghosting — street has even faster-moving objects
@@ -373,10 +376,13 @@ public class MotionPipelineV2 {
             final int BASE_CONFIG_SIZE = 60;
             final int SHADOW_FIELDS_SIZE = 16;  // 4 fields × 4 bytes each
             nativeHasShadowFilter = (configStructSize >= BASE_CONFIG_SIZE + SHADOW_FIELDS_SIZE);
-            
-            logger.info(String.format("V2 struct sizes: config=%d, result=%d (total result=%d), shadowFilter=%s",
+            // Result struct: 316 bytes with shadow filter, 320 bytes with shadow filter + speed field
+            nativeHasSpeed = nativeHasShadowFilter && (resultStructSize >= 320);
+
+            logger.info(String.format("V2 struct sizes: config=%d, result=%d (total result=%d), shadowFilter=%s, speed=%s",
                     configStructSize, resultStructSize, resultStructSize * NUM_QUADRANTS,
-                    nativeHasShadowFilter ? "supported" : "NOT supported (old native)"));
+                    nativeHasShadowFilter ? "supported" : "NOT supported (old native)",
+                    nativeHasSpeed ? "supported" : "NOT supported (old native)"));
             
             // Allocate direct ByteBuffers
             configBuffer = ByteBuffer.allocateDirect(configStructSize);
@@ -493,15 +499,21 @@ public class MotionPipelineV2 {
         result.brightnessSuppressed = buf.get() != 0;
         
         if (nativeHasShadowFilter) {
-            // New layout: 2 bools + 2 padding bytes
+            // Layout: shadowFiltered(1) + 2 padding bytes + optional speed(4)
             result.shadowFiltered = buf.get() != 0;
-            buf.get(); buf.get();  // 2 bytes padding to align float array
+            buf.get(); buf.get();  // 2 bytes padding to align float
+            if (nativeHasSpeed) {
+                result.speed = buf.getFloat();
+            } else {
+                result.speed = -1.0f;
+            }
         } else {
-            // Old layout: 1 bool + 3 padding bytes
+            // Old layout: 1 bool + 3 padding bytes, no speed
             result.shadowFiltered = false;
+            result.speed = -1.0f;
             buf.get(); buf.get(); buf.get();  // 3 bytes padding
         }
-        
+
         // Block confidence array (70 floats)
         for (int i = 0; i < TOTAL_BLOCKS; i++) {
             result.blockConfidence[i] = buf.getFloat();

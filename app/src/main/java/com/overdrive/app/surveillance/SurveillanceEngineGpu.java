@@ -145,6 +145,13 @@ public class SurveillanceEngineGpu {
     // 10 FPS detector and destroying the battery savings of decoupled tracking.
     private static final long HEARTBEAT_COOLDOWN_MS = 2000;  // Min 2s between heartbeats per quadrant
     private final long[] lastHeartbeatTimeMs = new long[MotionPipelineV2.NUM_QUADRANTS];
+
+    // Multi-signal event classifier: combines C++ threat level with velocity, shape, noise,
+    // and YOLO results to produce a reliable effective threat. Replaces raw getMaxThreatLevel().
+    private final EventClassifier eventClassifier = new EventClassifier();
+
+    // Per-session per-block activation frequency tracker for environmental noise suppression.
+    private final BlockNoiseMap blockNoiseMap = new BlockNoiseMap();
     
     // Auto-exposure state (C++ handles per-quadrant threshold scaling,
     // Java only handles global params like brightness suppression and shadow filter mode)
@@ -542,9 +549,24 @@ public class SurveillanceEngineGpu {
         // Run V2 pipeline (includes C++ Global Illumination Sync)
         MotionPipelineV2.QuadrantResult[] results = pipelineV2.processFrame(
                 currentFrame, THUMBNAIL_WIDTH, THUMBNAIL_HEIGHT);
-        
-        // Check if any quadrant detected motion at MEDIUM or higher threat.
-        int maxThreat = pipelineV2.getMaxThreatLevel();
+
+        // Update per-session noise map and centroid history before classifying.
+        blockNoiseMap.update(results);
+        eventClassifier.updateCentroidHistory(results);
+
+        // Precipitation / global scatter suppression: ≥3 quadrants with high scattered
+        // activation and no coherent cluster = rain, heavy wind, or spray. Set threat
+        // to NONE so the recording trigger is skipped for this frame.
+        boolean precipitationSuppressed = isPrecipitationEvent(results);
+        if (precipitationSuppressed && frameCount % 100 == 0) {
+            logger.info("Environmental suppression: precipitation/wind (scattered activation ≥3 quadrants)");
+        }
+
+        // EventClassifier applies velocity, shape, noise, and YOLO gates on top of the
+        // C++ pipeline's raw threat level. This replaces the direct getMaxThreatLevel() call.
+        int maxThreat = precipitationSuppressed
+                ? MotionPipelineV2.THREAT_NONE
+                : eventClassifier.classify(results, blockNoiseMap);
         boolean anyMotion = maxThreat >= MotionPipelineV2.THREAT_MEDIUM;
         
         // SOTA: Tracker immunity from brightness suppression (Headlight Sweep Fix).
@@ -961,18 +983,19 @@ public class SurveillanceEngineGpu {
                         }
                         
                         // Check if tracker wants YOLO heartbeat (NCC score dropped or timer expired).
-                        // FIX: Enforce a hard 2-second cooldown per quadrant to prevent heartbeat spam.
-                        // Without this, a failing NCC tracker fires needsYoloHeartbeat=true on every
-                        // single frame, turning YOLO into a 10 FPS continuous detector and destroying
-                        // the battery savings of the decoupled architecture.
+                        // Enforce a threat-adaptive cooldown per quadrant to prevent heartbeat spam.
+                        // At HIGH threat (confirmed person), run YOLO every 1s for continuous verification.
+                        // At MEDIUM, run every 1.5s. At LOW/NONE, fall back to the default 2s.
                         if (NativeMotion.trackerNeedsYoloHeartbeat(q)) {
                             long timeSinceLastHeartbeat = now - lastHeartbeatTimeMs[q];
-                            if (timeSinceLastHeartbeat >= HEARTBEAT_COOLDOWN_MS
+                            long heartbeatCooldown = getHeartbeatCooldown(maxThreat);
+                            if (timeSinceLastHeartbeat >= heartbeatCooldown
                                     && useObjectDetection && !isAiRunning.get() && !aiQuadrantQueue.contains(q)) {
                                 aiQuadrantQueue.add(q);
                                 lastHeartbeatTimeMs[q] = now;
-                                logger.info("Tracker heartbeat: waking YOLO for Q" + q + 
-                                        " [" + MotionPipelineV2.QUADRANT_NAMES[q] + "]");
+                                logger.info("Tracker heartbeat: waking YOLO for Q" + q +
+                                        " [" + MotionPipelineV2.QUADRANT_NAMES[q] + "]"
+                                        + " (cooldown=" + heartbeatCooldown + "ms, threat=" + maxThreat + ")");
                             }
                         }
                     }
@@ -1288,7 +1311,11 @@ public class SurveillanceEngineGpu {
                     
                     int relevantCount = motionFiltered.size();
                     motionFilteredCount = relevantCount;
-                    
+
+                    // Publish YOLO results to EventClassifier so the next classify() call
+                    // on the main GL thread can apply the YOLO gate and person override.
+                    eventClassifier.onYoloResult(qIdx, motionFiltered);
+
                     if (relevantCount > 0) {
                         long timeSinceMotion = System.currentTimeMillis() - lastMotionTime;
                         if (timeSinceMotion < 2000) {
@@ -1397,6 +1424,8 @@ public class SurveillanceEngineGpu {
                 // forever, spamming heartbeats on every frame.
                 if (isHeartbeatRun && (detections == null || detections.isEmpty()
                         || motionFilteredCount == 0)) {
+                    // Clear EventClassifier's cached YOLO result — no person found.
+                    eventClassifier.onYoloResult(qIdx, java.util.Collections.emptyList());
                     try {
                         if (NativeMotion.trackerHasActiveTrack(qIdx)) {
                             NativeMotion.trackerDropTrack(qIdx);
@@ -1414,6 +1443,31 @@ public class SurveillanceEngineGpu {
         });
     }
     
+    /**
+     * Returns true if the frame shows signs of precipitation or global environmental scatter:
+     * ≥3 quadrants have high scattered activation (many active blocks) but no coherent cluster.
+     * This pattern is caused by rain, heavy wind, spray, or dense fog — not a person.
+     */
+    private boolean isPrecipitationEvent(MotionPipelineV2.QuadrantResult[] results) {
+        int scatteredQuadrants = 0;
+        for (MotionPipelineV2.QuadrantResult r : results) {
+            if (r.activeBlocks > 15 && r.componentSize < 3) {
+                scatteredQuadrants++;
+            }
+        }
+        return scatteredQuadrants >= 3;
+    }
+
+    /**
+     * Returns the YOLO heartbeat cooldown in ms based on the current threat level.
+     * Higher threat = more frequent YOLO confirmation.
+     */
+    private long getHeartbeatCooldown(int currentThreat) {
+        if (currentThreat >= MotionPipelineV2.THREAT_HIGH)   return 1000L;
+        if (currentThreat >= MotionPipelineV2.THREAT_MEDIUM) return 1500L;
+        return HEARTBEAT_COOLDOWN_MS;
+    }
+
     /**
      * Crop a quadrant from the 640×480 mosaic into the reusable aiBuffer.
      * Legacy path used when foveated cropper is not available.
@@ -1858,14 +1912,18 @@ public class SurveillanceEngineGpu {
         }
         active = false;
         inActiveMode = false;
-        
+
+        // Reset per-session signal state so the next arming starts clean.
+        blockNoiseMap.reset();
+        eventClassifier.resetAll();
+
         // SOTA: Notify StorageManager that surveillance is inactive
         try {
             com.overdrive.app.storage.StorageManager.getInstance().setSurveillanceActive(false);
         } catch (Exception e) {
             logger.warn("Could not set surveillance inactive state: " + e.getMessage());
         }
-        
+
         logger.info("Surveillance disabled");
     }
     

@@ -7,6 +7,7 @@
 #include "motion_pipeline_v2.h"
 #include <jni.h>
 #include <android/log.h>
+#include <cfloat>    // FLT_MAX (used in Stage 5 spatial range check)
 
 #define TAG_V2 "MotionV2"
 
@@ -553,35 +554,63 @@ static int stage5_behaviorClassification(
     qs->centroidIndex = (qs->centroidIndex + 1) % V2_CENTROID_HISTORY;
     if (qs->centroidCount < V2_CENTROID_HISTORY) qs->centroidCount++;
     
-    // Need enough history for loitering analysis
+    // Need enough history for behavioral analysis.
+    // Changed from THREAT_MEDIUM to THREAT_LOW: before we have enough history to
+    // classify motion correctly, be conservative. Any YOLO person confirmation on the
+    // Java side will override this upward, so real persons still record.
+    // The old THREAT_MEDIUM default caused every 3-second motion event to trigger
+    // recording before the pipeline ever got a chance to classify it.
     if (qs->centroidCount < config->loiteringFrames) {
-        // Not enough history yet — default to medium threat if motion exists
-        return THREAT_MEDIUM;
+        return THREAT_LOW;
     }
-    
-    // Check loitering: has centroid stayed within radius for N frames?
+
+    // Speed check: compute centroid velocity over a 5-frame window.
+    // Road-speed vehicles have centroid speed > 4 blocks/frame at 10 fps.
+    // A walking person: ~0.5–1.5 blocks/frame. Stationary: < 0.15.
+    // Vehicles should never trigger a loitering event — auto-downgrade them.
+    float speed = -1.0f;
+    if (qs->centroidCount >= 6) {
+        int i5 = (qs->centroidIndex - 6 + V2_CENTROID_HISTORY) % V2_CENTROID_HISTORY;
+        int i0 = (qs->centroidIndex - 1 + V2_CENTROID_HISTORY) % V2_CENTROID_HISTORY;
+        float sdx = qs->centroidHistoryX[i0] - qs->centroidHistoryX[i5];
+        float sdy = qs->centroidHistoryY[i0] - qs->centroidHistoryY[i5];
+        speed = std::sqrt(sdx * sdx + sdy * sdy) / 5.0f;
+    }
+    if (speed >= 4.0f) {
+        return THREAT_LOW;  // Road-speed vehicle — not a parking threat
+    }
+
+    // Loitering check: has the centroid stayed within a small spatial area?
+    // FIX: Measure the bounding box (range) of all N historical centroids, NOT
+    // their distance from the most recent centroid. The old "drift from current"
+    // approach misclassified a person who walked to the car and stopped as
+    // THREAT_MEDIUM (the approach path centroids are far from the current one).
+    // The range check correctly answers: "did this object move much recently?"
     int framesToCheck = std::min(config->loiteringFrames, qs->centroidCount);
-    float maxDrift = 0.0f;
+    float minX = FLT_MAX, maxX = -FLT_MAX;
+    float minY = FLT_MAX, maxY = -FLT_MAX;
     float firstX = 0, firstY = 0;
-    float lastX = 0, lastY = 0;
-    
+    float lastX  = 0, lastY  = 0;
+
     for (int i = 0; i < framesToCheck; i++) {
         int idx = (qs->centroidIndex - 1 - i + V2_CENTROID_HISTORY) % V2_CENTROID_HISTORY;
         float cx = qs->centroidHistoryX[idx];
         float cy = qs->centroidHistoryY[idx];
-        
+
+        if (cx < minX) minX = cx;
+        if (cx > maxX) maxX = cx;
+        if (cy < minY) minY = cy;
+        if (cy > maxY) maxY = cy;
+
         if (i == 0) { lastX = cx; lastY = cy; }
         if (i == framesToCheck - 1) { firstX = cx; firstY = cy; }
-        
-        // Check drift against most recent centroid
-        float dx = cx - qs->centroidHistoryX[(qs->centroidIndex - 1 + V2_CENTROID_HISTORY) % V2_CENTROID_HISTORY];
-        float dy = cy - qs->centroidHistoryY[(qs->centroidIndex - 1 + V2_CENTROID_HISTORY) % V2_CENTROID_HISTORY];
-        float dist = std::sqrt(dx * dx + dy * dy);
-        if (dist > maxDrift) maxDrift = dist;
     }
-    
-    // Loitering: centroid stayed within radius
-    if (maxDrift <= config->loiteringRadiusBlocks) {
+
+    float rangeX = maxX - minX;
+    float rangeY = maxY - minY;
+
+    // Loitering: centroid stayed within a small area for the full window
+    if (rangeX <= config->loiteringRadiusBlocks && rangeY <= config->loiteringRadiusBlocks) {
         return THREAT_HIGH;
     }
     
@@ -880,6 +909,17 @@ static void processQuadrant(
     int threatLevel = stage5_behaviorClassification(qs, centroidX, centroidY, largestComponent, config);
     result->threatLevel = threatLevel;
     result->motionDetected = (threatLevel > THREAT_NONE);
+
+    // Expose centroid speed to Java (5-frame rolling average, same formula as Stage 5 gate).
+    if (qs->centroidCount >= 6) {
+        int si5 = (qs->centroidIndex - 6 + V2_CENTROID_HISTORY) % V2_CENTROID_HISTORY;
+        int si0 = (qs->centroidIndex - 1 + V2_CENTROID_HISTORY) % V2_CENTROID_HISTORY;
+        float sdx = qs->centroidHistoryX[si0] - qs->centroidHistoryX[si5];
+        float sdy = qs->centroidHistoryY[si0] - qs->centroidHistoryY[si5];
+        result->speed = std::sqrt(sdx * sdx + sdy * sdy) / 5.0f;
+    } else {
+        result->speed = -1.0f;
+    }
     
     if (result->motionDetected) {
         const char* threatNames[] = {"NONE", "LOW(pass)", "MEDIUM(approach)", "HIGH(loiter)"};
