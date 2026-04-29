@@ -78,7 +78,7 @@ public class BlockNoiseMap {
             }
         }
         boolean allNoisy = confirmedCount > 0;
-        if (allNoisy && logger.isDebugEnabled()) {
+        if (allNoisy) {
             logger.debug(String.format(
                     "Q%d: %d confirmed blocks, all in noise zones (warmup=%d)", quadrant, confirmedCount, frameCount));
         }

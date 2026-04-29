@@ -140,19 +140,15 @@ public class EventClassifier {
             if (speed >= SPEED_VEHICLE_MIN) {
                 // Centroid moves at vehicle pace — downgrade regardless of spatial classification
                 quadrantThreat = MotionPipelineV2.THREAT_LOW;
-                if (logger.isDebugEnabled()) {
-                    logger.debug(String.format("Q%d speed=%.2f ≥ %.1f → vehicle auto-downgrade to LOW",
-                            q, speed, SPEED_VEHICLE_MIN));
-                }
+                logger.debug(String.format("Q%d speed=%.2f ≥ %.1f → vehicle auto-downgrade to LOW",
+                        q, speed, SPEED_VEHICLE_MIN));
             } else if (speed >= 0f && speed < SPEED_LOITER_MAX
                     && r.componentSize > 0 && histCount[q] >= SPEED_WINDOW + 1) {
                 // Near-zero speed + visible component = object standing still → loitering
                 if (quadrantThreat < MotionPipelineV2.THREAT_HIGH) {
                     quadrantThreat = MotionPipelineV2.THREAT_HIGH;
-                    if (logger.isDebugEnabled()) {
-                        logger.debug(String.format("Q%d speed=%.2f < %.2f (stationary) → upgrade to HIGH",
-                                q, speed, SPEED_LOITER_MAX));
-                    }
+                    logger.debug(String.format("Q%d speed=%.2f < %.2f (stationary) → upgrade to HIGH",
+                            q, speed, SPEED_LOITER_MAX));
                 }
             }
 
@@ -167,11 +163,9 @@ public class EventClassifier {
                             && (float) width / height >= VEHICLE_ASPECT_MIN) {
                         // Very wide, very flat component = vehicle silhouette
                         quadrantThreat = MotionPipelineV2.THREAT_LOW;
-                        if (logger.isDebugEnabled()) {
-                            logger.debug(String.format(
-                                    "Q%d component %dw×%dh (vehicle shape, ratio=%.1f) → downgrade to LOW",
-                                    q, width, height, (float) width / height));
-                        }
+                        logger.debug(String.format(
+                                "Q%d component %dw×%dh (vehicle shape, ratio=%.1f) → downgrade to LOW",
+                                q, width, height, (float) width / height));
                     }
                 }
             }
@@ -205,10 +199,8 @@ public class EventClassifier {
                 // All active blocks are in environmentally-noisy zones and YOLO found
                 // no person — this is environmental motion, not a threat
                 quadrantThreat = MotionPipelineV2.THREAT_LOW;
-                if (logger.isDebugEnabled()) {
-                    logger.debug(String.format(
-                            "Q%d all blocks in noise zones, no YOLO person → suppress to LOW", q));
-                }
+                logger.debug(String.format(
+                        "Q%d all blocks in noise zones, no YOLO person → suppress to LOW", q));
             }
 
             if (quadrantThreat > effectiveThreat) {
