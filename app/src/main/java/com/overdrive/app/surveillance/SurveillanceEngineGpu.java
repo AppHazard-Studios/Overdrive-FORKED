@@ -285,26 +285,32 @@ public class SurveillanceEngineGpu {
         try {
             pipelineV2 = new MotionPipelineV2();
             if (pipelineV2.init()) {
-                // Load persisted user config; fall back to outdoor defaults if nothing saved.
-                SurveillanceConfig savedConfig = new SurveillanceConfigManager().loadConfig();
                 pipelineV2Config = new MotionPipelineV2.Config();
-                // Apply preset first (sets coherent defaults), then override with persisted specifics.
-                // Order mirrors setConfig() so behaviour is identical to a runtime config update.
-                pipelineV2Config.applyEnvironmentPreset(savedConfig.getEnvironmentPreset());
-                pipelineV2Config.applySensitivity(savedConfig.getSensitivityLevel());
-                pipelineV2Config.applyDetectionZone(savedConfig.getDetectionZone());
-                pipelineV2Config.loiteringFrames = savedConfig.getLoiteringTimeSeconds() * 10;
-                pipelineV2Config.shadowFilterMode = savedConfig.getShadowFilterMode();
-                boolean[] cameras = savedConfig.getCameraEnabled();
-                for (int i = 0; i < 4; i++) {
-                    pipelineV2Config.quadrantEnabled[i] = cameras[i];
+                // Load persisted config in a separate try/catch so a missing or malformed
+                // config file cannot prevent the pipeline from initializing.
+                try {
+                    SurveillanceConfig savedConfig = new SurveillanceConfigManager().loadConfig();
+                    pipelineV2Config.applyEnvironmentPreset(savedConfig.getEnvironmentPreset());
+                    pipelineV2Config.applySensitivity(savedConfig.getSensitivityLevel());
+                    pipelineV2Config.applyDetectionZone(savedConfig.getDetectionZone());
+                    pipelineV2Config.loiteringFrames = savedConfig.getLoiteringTimeSeconds() * 10;
+                    pipelineV2Config.shadowFilterMode = savedConfig.getShadowFilterMode();
+                    boolean[] cameras = savedConfig.getCameraEnabled();
+                    for (int i = 0; i < 4; i++) {
+                        pipelineV2Config.quadrantEnabled[i] = cameras[i];
+                    }
+                    logger.info(String.format(
+                        "V2 config loaded: env=%s, sens=%d, zone=%s, loiter=%ds",
+                        savedConfig.getEnvironmentPreset(), savedConfig.getSensitivityLevel(),
+                        savedConfig.getDetectionZone(), savedConfig.getLoiteringTimeSeconds()));
+                } catch (Exception configEx) {
+                    logger.warn("Could not load saved surveillance config, using outdoor defaults: "
+                            + configEx.getMessage());
+                    pipelineV2Config.applyEnvironmentPreset("outdoor");
                 }
                 pipelineV2.applyConfig(pipelineV2Config);
                 pipelineV2Initialized = true;
-                logger.info(String.format(
-                    "V2 per-quadrant pipeline initialized: env=%s, sens=%d, zone=%s, loiter=%ds",
-                    savedConfig.getEnvironmentPreset(), savedConfig.getSensitivityLevel(),
-                    savedConfig.getDetectionZone(), savedConfig.getLoiteringTimeSeconds()));
+                logger.info("V2 per-quadrant pipeline initialized");
             } else {
                 logger.error("V2 pipeline init failed");
                 pipelineV2 = null;

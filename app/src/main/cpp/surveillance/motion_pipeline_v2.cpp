@@ -627,9 +627,14 @@ static int stage5_behaviorClassification(
         // Moving toward center = approaching
         return THREAT_MEDIUM;
     }
-    
-    // Passing or receding
-    return THREAT_LOW;
+
+    if (distLast > distFirst + 0.5f) {
+        // Clearly moving away from center = receding
+        return THREAT_LOW;
+    }
+
+    // Lateral / passing motion — object is visible and near the car, record it
+    return THREAT_MEDIUM;
 }
 
 // ============================================================================
