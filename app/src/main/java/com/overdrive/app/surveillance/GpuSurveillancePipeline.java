@@ -93,20 +93,23 @@ public class GpuSurveillancePipeline {
      * Sets the recording mode (Normal/Sentry).
      */
     public void setRecordingMode(GpuPipelineConfig.RecordingMode mode) {
+        int prevFps = config.getRecordingFps();
         config.setRecordingMode(mode);
-        
-        // Apply to encoder - but DON'T override user's bitrate setting
-        // Only change FPS (which requires encoder restart anyway)
+
         if (encoder != null) {
-            // Use the user's configured bitrate, not the mode's default
             int userBitrate = config.getEffectiveBitrate();
-            if (bitrateController != null) {
-                bitrateController.setImmediateBitrate(userBitrate);
+            if (mode.fps != prevFps) {
+                // FPS change requires encoder reinit — reuse applyBitrateChange path
+                logger.info(String.format("Recording mode: %s — FPS %d→%d, reinitializing encoder",
+                        mode, prevFps, mode.fps));
+                applyBitrateChange(userBitrate);
+            } else {
+                if (bitrateController != null) {
+                    bitrateController.setImmediateBitrate(userBitrate);
+                }
+                logger.info(String.format("Recording mode: %s (%dfps, %d Mbps)",
+                        mode, mode.fps, userBitrate / 1_000_000));
             }
-            // Note: FPS is set during encoder initialization
-            // Dynamic FPS change would require encoder restart
-            logger.info(String.format("Recording mode: %s (using user bitrate=%d Mbps, mode default was %d Mbps)",
-                    mode, userBitrate / 1_000_000, mode.bitrate / 1_000_000));
         }
     }
     
@@ -321,7 +324,7 @@ public class GpuSurveillancePipeline {
             (codecMimeType.contains("hevc") ? "H.265" : "H.264") + 
             " @ " + (bitrate / 1_000_000) + " Mbps");
         
-        encoder = new HardwareEventRecorderGpu(encoderWidth, encoderHeight, 15, bitrate, codecMimeType);
+        encoder = new HardwareEventRecorderGpu(encoderWidth, encoderHeight, config.getRecordingFps(), bitrate, codecMimeType);
         encoder.init();
         
         // Reinitialize recorder with new encoder on GL thread
@@ -433,7 +436,7 @@ public class GpuSurveillancePipeline {
         logger.info("Creating encoder with config: " + 
             (codecMimeType.contains("hevc") ? "H.265" : "H.264") + 
             " @ " + (bitrate / 1_000_000) + " Mbps");
-        encoder = new HardwareEventRecorderGpu(encoderWidth, encoderHeight, 15, bitrate, codecMimeType);
+        encoder = new HardwareEventRecorderGpu(encoderWidth, encoderHeight, config.getRecordingFps(), bitrate, codecMimeType);
         encoder.init();
         
         // 2. Create GPU mosaic recorder (shared)

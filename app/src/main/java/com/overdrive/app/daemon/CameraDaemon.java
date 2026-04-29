@@ -1209,24 +1209,29 @@ public class CameraDaemon {
      */
     public static void setRecordingQuality(String quality) {
         if (gpuPipeline == null) return;
-        
+
         com.overdrive.app.surveillance.GpuPipelineConfig.RecordingMode mode;
         switch (quality.toUpperCase()) {
-            case "LOW":
+            case "EFFICIENT":
+            case "LOW":      // legacy
+            case "REDUCED":  // legacy
+                mode = com.overdrive.app.surveillance.GpuPipelineConfig.RecordingMode.EFFICIENT;
+                break;
+            case "QUALITY":
+                mode = com.overdrive.app.surveillance.GpuPipelineConfig.RecordingMode.QUALITY;
+                break;
             case "SENTRY":
                 mode = com.overdrive.app.surveillance.GpuPipelineConfig.RecordingMode.SENTRY;
                 break;
-            case "REDUCED":
-                mode = com.overdrive.app.surveillance.GpuPipelineConfig.RecordingMode.SENTRY;
-                break;
-            case "NORMAL":
+            case "BALANCED":
+            case "NORMAL":   // legacy
             default:
-                mode = com.overdrive.app.surveillance.GpuPipelineConfig.RecordingMode.NORMAL;
+                mode = com.overdrive.app.surveillance.GpuPipelineConfig.RecordingMode.BALANCED;
                 break;
         }
-        
+
         gpuPipeline.setRecordingMode(mode);
-        log("Recording quality set to: " + quality + " (mode=" + mode + ")");
+        log("Recording quality set to: " + quality + " (mode=" + mode + ", " + mode.fps + "fps, " + (mode.bitrate / 1_000_000) + "Mbps)");
     }
     
     /**

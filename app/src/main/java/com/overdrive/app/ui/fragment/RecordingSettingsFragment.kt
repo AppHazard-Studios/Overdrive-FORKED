@@ -25,8 +25,8 @@ import java.net.URL
 class RecordingSettingsFragment : Fragment() {
 
     private lateinit var toggleMode: MaterialButtonToggleGroup
-    private lateinit var toggleQuality: MaterialButtonToggleGroup
-    private lateinit var toggleBitrate: MaterialButtonToggleGroup
+    private lateinit var toggleDashcamQuality: MaterialButtonToggleGroup
+    private lateinit var tvQualityHint: TextView
     private lateinit var toggleCodec: MaterialButtonToggleGroup
     private lateinit var toggleStorageType: MaterialButtonToggleGroup
     private lateinit var sliderLimit: Slider
@@ -78,16 +78,9 @@ class RecordingSettingsFragment : Fragment() {
         })
         cardProximityGuard.visibility = if (mode == "PROXIMITY_GUARD") View.VISIBLE else View.GONE
 
-        val quality = p.getString("quality", "NORMAL") ?: "NORMAL"
-        val bitrate = p.getString("bitrate", "MEDIUM") ?: "MEDIUM"
+        val dashcamQuality = p.getString("dashcam_quality", "BALANCED") ?: "BALANCED"
         val codec = p.getString("codec", "H264") ?: "H264"
-        // "Full" (btnQualityNormal) = NORMAL; "Reduced" (btnQualityHigh) = REDUCED
-        toggleQuality.check(if (quality == "REDUCED") R.id.btnQualityHigh else R.id.btnQualityNormal)
-        toggleBitrate.check(when (bitrate) {
-            "LOW" -> R.id.btnBitrateLow
-            "HIGH" -> R.id.btnBitrateHigh
-            else -> R.id.btnBitrateMedium
-        })
+        applyDashcamQualityToggle(dashcamQuality)
         toggleCodec.check(if (codec == "H265") R.id.btnCodecH265 else R.id.btnCodecH264)
 
         currentStorageType = p.getString("storage_type", "INTERNAL") ?: "INTERNAL"
@@ -119,13 +112,12 @@ class RecordingSettingsFragment : Fragment() {
         btnApply.isEnabled = false
     }
 
-    private fun saveToPrefs(quality: String, bitrate: String, codec: String,
+    private fun saveToPrefs(dashcamQuality: String, codec: String,
                             mode: String, triggerLevel: String, preRecord: Int, postRecord: Int,
                             limitMb: Int, storageType: String, telemetryEnabled: Boolean) {
         prefs().edit()
             .putString("mode", mode)
-            .putString("quality", quality)
-            .putString("bitrate", bitrate)
+            .putString("dashcam_quality", dashcamQuality)
             .putString("codec", codec)
             .putString("storage_type", storageType)
             .putInt("limit_mb", limitMb)
@@ -138,8 +130,8 @@ class RecordingSettingsFragment : Fragment() {
 
     private fun initViews(view: View) {
         toggleMode = view.findViewById(R.id.toggleMode)
-        toggleQuality = view.findViewById(R.id.toggleQuality)
-        toggleBitrate = view.findViewById(R.id.toggleBitrate)
+        toggleDashcamQuality = view.findViewById(R.id.toggleDashcamQuality)
+        tvQualityHint = view.findViewById(R.id.tvQualityHint)
         toggleCodec = view.findViewById(R.id.toggleCodec)
         toggleStorageType = view.findViewById(R.id.toggleStorageType)
         sliderLimit = view.findViewById(R.id.sliderLimit)
@@ -168,8 +160,19 @@ class RecordingSettingsFragment : Fragment() {
             }
         }
 
-        listOf(toggleQuality, toggleBitrate, toggleCodec).forEach { group ->
-            group.addOnButtonCheckedListener { _, _, isChecked -> if (isChecked && !isInitializing) markChanged() }
+        toggleDashcamQuality.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (isChecked && !isInitializing) {
+                val hint = when (checkedId) {
+                    R.id.btnQualityEfficient -> "Efficient — 15fps · 4 Mbps"
+                    R.id.btnQualityQuality   -> "Quality — 25fps · 12 Mbps"
+                    else                     -> "Balanced — 20fps · 8 Mbps"
+                }
+                tvQualityHint.text = hint
+                markChanged()
+            }
+        }
+        toggleCodec.addOnButtonCheckedListener { _, _, isChecked ->
+            if (isChecked && !isInitializing) markChanged()
         }
 
         toggleStorageType.addOnButtonCheckedListener { _, checkedId, isChecked ->
@@ -242,23 +245,20 @@ class RecordingSettingsFragment : Fragment() {
             isInitializing = true
 
             if (qualityJson != null) {
-                // Daemon quality values: LOW / REDUCED / NORMAL (no "HIGH" — it is silently rejected)
-                // UI maps: "Full" (btnQualityNormal) → NORMAL, "Reduced" (btnQualityHigh) → REDUCED
-                val quality = qualityJson.optString("recordingQuality", "NORMAL")
-                val bitrate = qualityJson.optString("recordingBitrate", "MEDIUM")
+                val quality = qualityJson.optString("recordingQuality", "BALANCED")
                 val codec = qualityJson.optString("recordingCodec", "H264")
 
-                toggleQuality.check(if (quality == "REDUCED") R.id.btnQualityHigh else R.id.btnQualityNormal)
-                toggleBitrate.check(when (bitrate) {
-                    "LOW" -> R.id.btnBitrateLow
-                    "HIGH" -> R.id.btnBitrateHigh
-                    else -> R.id.btnBitrateMedium
-                })
+                // Map legacy daemon values to new tier names
+                val dashcamQuality = when (quality.uppercase()) {
+                    "EFFICIENT", "LOW", "REDUCED" -> "EFFICIENT"
+                    "QUALITY" -> "QUALITY"
+                    else -> "BALANCED"
+                }
+                applyDashcamQualityToggle(dashcamQuality)
                 toggleCodec.check(if (codec == "H265") R.id.btnCodecH265 else R.id.btnCodecH264)
 
                 prefs().edit()
-                    .putString("quality", quality)
-                    .putString("bitrate", bitrate)
+                    .putString("dashcam_quality", dashcamQuality)
                     .putString("codec", codec)
                     .apply()
             }
@@ -433,13 +433,10 @@ class RecordingSettingsFragment : Fragment() {
     private fun applySettings() {
         btnApply.isEnabled = false
 
-        // Quality: daemon accepts NORMAL/REDUCED/LOW only — "HIGH" is silently rejected.
-        // "Full" button → NORMAL, "Reduced" button → REDUCED.
-        val quality = if (toggleQuality.checkedButtonId == R.id.btnQualityHigh) "REDUCED" else "NORMAL"
-        val bitrate = when (toggleBitrate.checkedButtonId) {
-            R.id.btnBitrateLow -> "LOW"
-            R.id.btnBitrateHigh -> "HIGH"
-            else -> "MEDIUM"
+        val dashcamQuality = when (toggleDashcamQuality.checkedButtonId) {
+            R.id.btnQualityEfficient -> "EFFICIENT"
+            R.id.btnQualityQuality   -> "QUALITY"
+            else                     -> "BALANCED"
         }
         val codec = if (toggleCodec.checkedButtonId == R.id.btnCodecH265) "H265" else "H264"
         val mode = when (toggleMode.checkedButtonId) {
@@ -458,7 +455,7 @@ class RecordingSettingsFragment : Fragment() {
         val limitMb = sliderLimit.value.toInt()
         val telemetryEnabled = switchTelemetry.isChecked
 
-        saveToPrefs(quality, bitrate, codec, mode, triggerLevel, preRecord, postRecord,
+        saveToPrefs(dashcamQuality, codec, mode, triggerLevel, preRecord, postRecord,
             limitMb, currentStorageType, telemetryEnabled)
 
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
@@ -468,8 +465,7 @@ class RecordingSettingsFragment : Fragment() {
             runCatching {
                 postJson(
                     "/api/settings/quality", JSONObject().apply {
-                        put("recordingQuality", quality)
-                        put("recordingBitrate", bitrate)
+                        put("recordingQuality", dashcamQuality)
                         put("recordingCodec", codec)
                     }
                 )
@@ -492,9 +488,8 @@ class RecordingSettingsFragment : Fragment() {
                         put("section", "recording")
                         put(
                             "data", JSONObject().apply {
-                                put("bitrate", bitrate)
+                                put("dashcamQuality", dashcamQuality)
                                 put("codec", codec)
-                                put("quality", quality)
                                 put("mode", mode)
                             }
                         )
@@ -547,12 +542,25 @@ class RecordingSettingsFragment : Fragment() {
                 val msg = when {
                     !daemonReachable -> "Settings saved. Will apply when daemon connects."
                     !success -> "Some settings may not have saved"
-                    codec == "H265" -> "Applied — H.265 takes effect on next recording"
                     else -> "Settings applied"
                 }
                 Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 launch(Dispatchers.IO) { fetchAndApplyStorageStats() }
             }
+        }
+    }
+
+    private fun applyDashcamQualityToggle(tier: String) {
+        val btnId = when (tier.uppercase()) {
+            "EFFICIENT" -> R.id.btnQualityEfficient
+            "QUALITY"   -> R.id.btnQualityQuality
+            else        -> R.id.btnQualityBalanced
+        }
+        toggleDashcamQuality.check(btnId)
+        tvQualityHint.text = when (btnId) {
+            R.id.btnQualityEfficient -> "Efficient — 15fps · 4 Mbps"
+            R.id.btnQualityQuality   -> "Quality — 25fps · 12 Mbps"
+            else                     -> "Balanced — 20fps · 8 Mbps"
         }
     }
 
